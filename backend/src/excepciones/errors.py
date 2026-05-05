@@ -26,6 +26,30 @@ class VotoDuplicadoError(DominioVotacionError):
     http_status: int = status.HTTP_409_CONFLICT
 
 
+class SolicitudNoEncontradaError(DominioVotacionError):
+    """La solicitud referenciada no existe."""
+
+    http_status: int = status.HTTP_404_NOT_FOUND
+
+
+class SolicitudDuplicadaError(DominioVotacionError):
+    """Se intento persistir una solicitud cuyo id ya existe."""
+
+    http_status: int = status.HTTP_409_CONFLICT
+
+
+class SolicitudYaDerivadaError(DominioVotacionError):
+    """La solicitud ya fue derivada previamente y no puede re-derivarse."""
+
+    http_status: int = status.HTTP_409_CONFLICT
+
+
+class NoAutorizadoError(DominioVotacionError):
+    """El llamante no tiene rol administrador."""
+
+    http_status: int = status.HTTP_403_FORBIDDEN
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     """Registra los handlers HTTP para las excepciones de dominio.
 
