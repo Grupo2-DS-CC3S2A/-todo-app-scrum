@@ -16,14 +16,6 @@ Para mantener la integridad de la rama `main`, seguimos estas reglas:
 *   👤 **López Arteaga, César Omar**
 *   👤 **Palomino, José Alfredo**
 *   👤 **Chacón, Leonardo**
-
----
-
-### Notas de Implementación
-> *El módulo de seguridad utiliza una simulación de algoritmos genéticos para¡Claro! Un buen `README.md` es la cara de tu proyecto, especialmente para entregas académicas en la **UNI** o presentaciones de **Scrum**. He optimizado la estructura usando Markdown avanzado (tablas, badges y emojis) para que sea visualmente profesional.
-
-Aquí tienes la versión mejorada:
-
 ---
 
 # 🗳️ Mesa de Partes - Sistema de Voto Electrónico Seguro
