@@ -41,11 +41,11 @@ export function VotingForm({
   };
 
   return (
-    <Card.Root bg="gray.800" borderColor="gray.700" p={5}>
+    <Card.Root bg="gray.50" borderColor="gray.200" borderWidth="1px" p={5}>
       <form onSubmit={handleSubmit} noValidate>
         <Stack gap={4}>
           <Box>
-            <Text mb={2}>DNI del Votante</Text>
+            <Text mb={2} color="gray.700" fontWeight="medium" fontSize="sm">DNI del Votante</Text>
             <Input
               placeholder="Ingresa tu DNI (8 digitos)"
               inputMode="numeric"
@@ -56,7 +56,7 @@ export function VotingForm({
             />
           </Box>
           <Box>
-            <Text mb={2}>ID de Candidato</Text>
+            <Text mb={2} color="gray.700" fontWeight="medium" fontSize="sm">ID de Candidato</Text>
             <Input
               placeholder="Ej. 1"
               type="number"

@@ -17,20 +17,23 @@ function formatTimestamp(epoch: number): string {
 
 export function VotingReceipt({ comprobante }: VotingReceiptProps): ReactElement {
   return (
-    <Card.Root bg="green.900" borderColor="green.700" p={5}>
-      <Heading size="md" mb={3}>
+    <Card.Root bg="green.50" borderColor="green.300" borderWidth="1px" p={5}>
+      <Heading size="md" mb={3} color="green.700">
         Voto Procesado Exitosamente
       </Heading>
-      <Text fontSize="sm" color="gray.300">
+      <Text fontSize="sm" color="green.800">
         Tu voto ha sido cifrado y es anonimo.
       </Text>
       <Stack
         mt={3}
         p={3}
-        bg="blackAlpha.500"
+        bg="green.100"
         rounded="md"
         fontSize="xs"
         fontFamily="monospace"
+        color="green.900"
+        border="1px solid"
+        borderColor="green.200"
       >
         <Text wordBreak="break-all">
           <b>Hash Cifrado:</b> {comprobante.hash_voto}
