@@ -1,134 +1,133 @@
-# Mesa de Partes — Sistema de Voto Electronico Seguro
+# Mesa de Partes — Voto Electrónico Seguro
 
-[![Sprint](https://img.shields.io/badge/Scrum-Sprint%203-blue)](#)
 [![Stack](https://img.shields.io/badge/stack-React%20%7C%20FastAPI-brightgreen)](#)
-[![Branching](https://img.shields.io/badge/flow-main%20%7C%20develop-orange)](#)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue)](#)
+[![Node](https://img.shields.io/badge/Node.js-18%2B-green)](#)
 
-Implementacion de una Mesa de Partes para la automatizacion del voto electronico.
-Reduce esperas y previene fraudes mediante cifrado hash y reglas evolutivas
-derivadas de algoritmos geneticos.
+Sistema de **Mesa de Partes Electrónica** para la automatización del registro y derivación de solicitudes de voto. Reduce tiempos de espera y previene fraudes mediante cifrado SHA-256 y llaves dinámicas generadas por algoritmos genéticos.
 
-> Proyecto del curso **Desarrollo de Software (CC3S2-A)** — Practicas Dirigidas 1 y 2.
-> Arquitectura orientada a servicios + Scrum.
+> Proyecto del curso **Desarrollo de Software (CC3S2-A)** — Grupo 2.
 
 ---
 
-## Tabla de Contenidos
+## ¿Qué hace el sistema?
 
-1. [Arquitectura](#arquitectura-del-sistema)
-2. [Estructura del Repositorio](#estructura-del-repositorio)
-3. [Requisitos](#requisitos-de-entorno)
-4. [Inicializacion](#instrucciones-de-inicializacion)
-5. [Flujo de Trabajo Git + Jira](#flujo-de-trabajo-git--jira)
-6. [Integrantes](#integrantes-grupo-2)
+El sistema cubre dos grandes flujos:
 
----
+| Funcionalidad | Descripción |
+|---|---|
+| **Emisión de voto seguro** | El ciudadano ingresa su DNI e ID de candidato. El backend genera un hash SHA-256 del voto junto con una llave evolutiva producida por un algoritmo genético. Se devuelve un comprobante con hash, llave y timestamp. |
+| **Derivación de solicitudes** | Un administrador puede derivar solicitudes a la dependencia correspondiente (Registro Civil, Identificación, GRIAS, Imagenología, etc.) según el tipo de trámite. |
+| **Auditoría** | Endpoint de auditoría que devuelve todos los votos cifrados almacenados para verificación interna. |
+| **Consulta de estado** | Permite consultar el estado de una solicitud derivada por su ID. |
+| **Health check** | Endpoint `/health` para monitoreo de disponibilidad del servicio. |
 
-## Arquitectura del Sistema
-
-Construido bajo principios de **Clean Architecture** y **SOLID**.
-
-| Capa | Tecnologia | Responsabilidad |
-|------|------------|-----------------|
-| Frontend | React + TypeScript + Vite + Chakra UI v3 | UI, custom hooks asincronos |
-| Backend | Python + FastAPI | Endpoints seguros, transacciones asincronas |
-| Seguridad | SHA-256 + Algoritmos Geneticos | Anonimizado y llaves dinamicas |
+> **Nota sobre persistencia:** Actualmente el repositorio de solicitudes es **en memoria** (se reinicia al apagar el servidor). No hay base de datos relacional conectada aún — es el siguiente paso planificado en el roadmap.
 
 ---
 
-## Estructura del Repositorio
+## Organización del Repositorio
 
 ```
-.
-├── backend/                       # Servidor FastAPI, modelos Pydantic, cifrado
-├── frontend/                      # Cliente React, hooks, tipado estricto
-├── Informe_Estado_Proyecto.md     # Iteracion 1, Product Backlog, arquitectura
-├── Reporte_Actividades_Miembros.md# Contribuciones del Grupo 2
+VotingSystem/
+├── backend/                    # API REST con FastAPI (Python)
+│   ├── app.py                  # Punto de entrada (uvicorn)
+│   ├── requirements.txt        # Dependencias Python
+│   └── src/
+│       ├── config.py           # Configuración centralizada (env vars)
+│       ├── main.py             # App factory de FastAPI + CORS + routers
+│       ├── modelos/            # Entidades de dominio (Pydantic)
+│       ├── servicios/          # Lógica de negocio (cifrado, GA, derivación)
+│       ├── repositorios/       # Capa de persistencia (en memoria / reemplazable)
+│       ├── rutas/              # Endpoints: votos, admin, solicitudes
+│       ├── excepciones/        # Errores de dominio y handlers HTTP
+│       ├── utilidades/         # SHA-256, algoritmo genético de llaves
+│       └── logging_config.py   # Logging estructurado
+│
+├── frontend/                   # SPA con React + TypeScript + Vite
+│   ├── index.html
+│   └── src/
+│       ├── App.tsx             # Layout principal (split panel institucional)
+│       ├── components/
+│       │   ├── VotingForm.tsx       # Formulario de voto (DNI + candidato)
+│       │   ├── VotingReceipt.tsx    # Comprobante del voto cifrado
+│       │   └── AdminDerivacionPanel.tsx  # Panel de administración
+│       ├── hooks/
+│       │   └── useVoting.ts    # Hook asíncrono: fetch + estado de carga
+│       ├── api/                # Funciones de llamada al backend
+│       └── types/              # Tipos TypeScript compartidos
+│
 └── README.md
 ```
 
 ---
 
-## Requisitos de Entorno
+## Tecnologías
 
-- Node.js **>= 18**
-- Python **>= 3.10**
-- npm + pip
+### Backend
+| Tecnología | Uso |
+|---|---|
+| **Python 3.10+** | Lenguaje principal del servidor |
+| **FastAPI** | Framework web asíncrono, genera Swagger UI automáticamente |
+| **Uvicorn** | Servidor ASGI de alta performance |
+| **Pydantic v2** | Validación y serialización de datos |
+| **SHA-256** (stdlib) | Cifrado del voto para garantizar anonimato |
+| **Algoritmos Genéticos** | Generación de llaves evolutivas dinámicas |
+
+### Frontend
+| Tecnología | Uso |
+|---|---|
+| **React 18 + TypeScript** | UI reactiva con tipado estricto |
+| **Vite** | Bundler y servidor de desarrollo ultrarrápido |
+| **Chakra UI v3** | Sistema de componentes con paleta institucional RENIEC |
+
+### Infraestructura / Flujo
+| Herramienta | Uso |
+|---|---|
+| **Git + GitHub** | Control de versiones, ramas `main` / `develop` / `feature/*` |
+| **Jira (Smart Commits)** | Trazabilidad de tickets desde los mensajes de commit |
 
 ---
 
-## Instrucciones de Inicializacion
+## Cómo ejecutar el proyecto
 
-Ejecutar en consolas separadas.
+Abrir **dos terminales** en la raíz de `VotingSystem/`.
 
-### Backend
+### 1. Backend
 
 ```bash
 cd backend
-python -m venv .venv
 
-# Windows
-.venv\Scripts\activate
-# Unix / macOS
-# source .venv/bin/activate
+# Crear y activar entorno virtual (solo la primera vez)
+python -m venv .venv
+.venv\Scripts\activate        # Windows
+# source .venv/bin/activate   # Linux / macOS
 
 pip install -r requirements.txt
 uvicorn src.main:app --reload --port 8000
 ```
 
-Swagger UI: `http://localhost:8000/docs`
+- API en: `http://localhost:8000`
+- Swagger UI: `http://localhost:8000/docs`
 
-### Frontend
+### 2. Frontend
 
 ```bash
 cd frontend
-npm install
+npm install        # solo la primera vez
 npm run dev
 ```
 
-Portal web: `http://localhost:5173`
+- Portal web: `http://localhost:5173`
 
 ---
 
-## Flujo de Trabajo Git + Jira
+## Integrantes — Grupo 2
 
-Ramas principales:
-
-- **`main`** — protegida, solo recibe merges desde `develop` via Pull Request.
-- **`develop`** — integracion continua del equipo.
-- **`feature/SCRUM-XX-descripcion`** — derivada de `develop`, una por ticket Jira.
-
-Ejemplo de ciclo completo:
-
-```bash
-git checkout develop
-git pull origin develop
-git checkout -b feature/SCRUM-14-envio-solicitud
-
-# ...trabajo...
-
-git commit -m "SCRUM-14 #in-progress feat: envio de solicitud a dependencia"
-git push -u origin feature/SCRUM-14-envio-solicitud
-
-# Abrir Pull Request hacia develop en GitHub.
-# Al hacer merge: Jira mueve el ticket a "Finalizado" automaticamente.
-```
-
-**Smart Commits** soportados:
-
-| Marca | Efecto en Jira |
-|-------|----------------|
-| `SCRUM-14 #in-progress` | Mueve a *En curso* |
-| `SCRUM-14 #review` | Mueve a *En revision* |
-| `SCRUM-14 #done` o merge a `main` | Mueve a *Finalizado* |
-| `SCRUM-14 #time 2h #comment "fix"` | Registra tiempo + comentario |
-
----
-
-## Integrantes (Grupo 2)
-
-- ALVARO JESUS TAIPE COTRINA
-- Andrew Owim Inga Rojas
-- CeSaR OmaR LoPeZ ArTeAgA
-- Jose Alfredo Palomino
-- LEONARDO CHACON
+| Nombre |
+|---|
+| Alvaro Jesus Taipe Cotrina |
+| Andrew Owim Inga Rojas |
+| César Omar López Arteaga |
+| Jose Alfredo Palomino |
+| Leonardo Chacón |
