@@ -108,7 +108,7 @@ class SolicitudService:
             fecha_ingreso=ahora,
             fecha_maxima_respuesta=fecha_maxima,
             estado=EstadoSolicitud.PENDIENTE,
-        )
+        )  # type: ignore
 
         with self._lock:
             if solicitud.id in self._solicitudes:
