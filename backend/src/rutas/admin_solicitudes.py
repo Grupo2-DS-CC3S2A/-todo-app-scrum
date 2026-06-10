@@ -57,9 +57,7 @@ async def verificar_admin(
         try:
             payload = auth.decodificar_token(credentials.credentials)
         except Exception as exc:
-            raise NoAutorizadoError(
-                "Token JWT invalido o expirado."
-            ) from exc
+            raise NoAutorizadoError("Token JWT invalido o expirado.") from exc
         if payload.get("rol") != RolUsuario.ADMIN.value:
             raise NoAutorizadoError(
                 "El usuario autenticado no tiene rol administrador."
