@@ -68,9 +68,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(Exception)
-    async def _unhandled_handler(
-        _request: Request, exc: Exception
-    ) -> JSONResponse:
+    async def _unhandled_handler(_request: Request, exc: Exception) -> JSONResponse:
         logger.exception("Error no controlado: %s", exc)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
