@@ -45,9 +45,7 @@ async def get_current_user(
     try:
         return auth.obtener_usuario(usuario_id)
     except UsuarioNoEncontradoError as exc:
-        raise TokenInvalidoError(
-            "El usuario del token ya no existe."
-        ) from exc
+        raise TokenInvalidoError("El usuario del token ya no existe.") from exc
 
 
 def require_roles(*roles: RolUsuario):
@@ -58,9 +56,7 @@ def require_roles(*roles: RolUsuario):
         usuario: Usuario = Depends(get_current_user),
     ) -> Usuario:
         if usuario.rol not in allowed:
-            raise PermisoDenegadoError(
-                "El usuario no tiene permisos suficientes."
-            )
+            raise PermisoDenegadoError("El usuario no tiene permisos suficientes.")
         return usuario
 
     return _checker
