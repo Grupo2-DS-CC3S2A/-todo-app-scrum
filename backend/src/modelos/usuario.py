@@ -42,14 +42,14 @@ class Usuario(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True, use_enum_values=False)
 
-    id: Annotated[str, Field(default_factory=_nuevo_id)]
+    id: str = Field(default_factory=_nuevo_id)
     username: Annotated[
         str,
         Field(min_length=USERNAME_MIN_LENGTH, max_length=USERNAME_MAX_LENGTH),
     ]
     password_hash: Annotated[str, Field(min_length=1)]
     rol: RolUsuario = RolUsuario.CIUDADANO
-    created_at: Annotated[datetime, Field(default_factory=_ahora_utc)]
+    created_at: datetime = Field(default_factory=_ahora_utc)
 
 
 class UsuarioPublico(BaseModel):
