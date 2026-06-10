@@ -59,9 +59,7 @@ def _calcular_fecha_maxima(ahora: datetime) -> datetime:
     Se fija al final del dia habil (23:59:59) para que la dependencia
     cuente con la jornada completa de la fecha limite.
     """
-    fecha_limite: date = sumar_dias_habiles(
-        ahora.date(), DIAS_HABILES_RESPUESTA
-    )
+    fecha_limite: date = sumar_dias_habiles(ahora.date(), DIAS_HABILES_RESPUESTA)
     return datetime.combine(
         fecha_limite,
         time(hour=23, minute=59, second=59),
