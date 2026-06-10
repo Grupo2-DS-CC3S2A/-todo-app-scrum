@@ -11,8 +11,6 @@ Provee tres helpers reutilizables:
 
 from __future__ import annotations
 
-from typing import Iterable
-
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
