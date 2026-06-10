@@ -23,5 +23,12 @@ El trabajo de este primer Sprint fue realizado de forma conjunta por los 5 integ
 - **QA y Validación (Rol Tester):** Ejecución de *Smoke Tests* sobre el backend de FastAPI y pruebas de renderizado en el cliente web. Aprobación de la funcionalidad de cifrado.
 - **Soporte de Requisitos:** Participación en la lluvia de ideas para definir el flujo del sistema de votación, los riesgos de fraude y la definición de la interfaz de usuario.
 
----
-*Nota: Para este primer entregable, la trazabilidad del trabajo se llevó a cabo directamente sobre la estructuración del código y el repositorio de GitHub, reemplazando temporalmente las evidencias individuales de Jira mediante un esfuerzo coordinado centralizado.*
+### Aportes de Leonardo Chacón (Tester / QA) — Ticket DEV-07
+- **Suite de pruebas unitarias e integración (backend):** Implementación completa de los tests automatizados del backend cubriendo las capas de utilidades, servicios, repositorios y endpoints HTTP.
+  - `tests/test_cifrado.py` — validación del hash SHA-256 (determinismo, formato, variabilidad)
+  - `tests/test_algoritmo_genetico.py` — cobertura de Cromosoma, Población, Cruce y Mutación
+  - `tests/test_voto_service.py` — validaciones de `VotoInput`, registro exitoso, detección de duplicados y thread-safety
+  - `tests/test_solicitud_service.py` — `SolicitudService`, `sumar_dias_habiles` y repositorio en memoria
+  - `tests/test_endpoints.py` / `test_endpoints_admin.py` — pruebas de integración de todos los endpoints HTTP
+- **Configuración de infraestructura de testing:** `pytest.ini`, `tests/conftest.py` con fixtures de inyección de dependencias, actualización de `requirements.txt`.
+- **Resultado:** 75 tests, 0 fallos, **97% de cobertura de código** (supera el objetivo del sprint de 85%).

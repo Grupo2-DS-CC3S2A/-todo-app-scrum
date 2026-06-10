@@ -1,58 +1,137 @@
-# Hoja de Ruta - Mesa de Partes de Voto Electrónico
+# Hoja de Ruta — Mesa de Partes de Voto Electrónico
 
-## Estado Actual (Semana 7)
-Se ha consolidado la versión **Beta** del sistema, implementada en gran medida por la integración core de arquitectura. Se tiene el backend en FastAPI (Clean Architecture), frontend en React (Chakra UI) y el motor de encriptación y hashes funcionando.
+## Estado del Proyecto
 
----
-
-## Tareas Inmediatas para el Resto del Equipo (Para la presentación de mañana)
-*Nota: Estas tareas están diseñadas para ser muy rápidas de implementar (1 hora o menos), de bajísima complejidad, pero que "visten" muy bien al proyecto y demuestran que todos trabajaron.*
-
-1. **Andrew - Validación de Diseño Responsivo:**
-   * **Acción:** Asegurar que el formulario web de votación se adapte perfectamente a celulares.
-   * **Implementación:** Modificar o revisar las etiquetas del layout en React para garantizar que no se desborde la pantalla en tamaños pequeños.
-2. **César - Pruebas de API con Postman:**
-   * **Acción:** Crear una colección de pruebas documentadas para los endpoints del backend.
-   * **Implementación:** Abrir Postman, crear un par de peticiones `POST` hacia el endpoint de votos de FastAPI, exportar el archivo `.json` y subirlo al repositorio.
-3. **José - Accesibilidad (a11y) y Experiencia de Usuario (UX):**
-   * **Acción:** Mejorar la accesibilidad visual de los componentes.
-   * **Implementación:** Añadir atributos `aria-label` en los botones de React, revisar textos de alertas/toasts y corregir la ortografía de los menús.
-4. **Leonardo - Redacción del Manual de Usuario Beta:**
-   * **Acción:** Crear un pequeño manual "Paso a Paso" para los votantes.
-   * **Implementación:** Redactar un PDF de 1 o 2 páginas con capturas de pantalla de cómo llenar el DNI y cómo leer el comprobante del hash encriptado.
+La versión **Beta** se encuentra en producción de referencia con arquitectura Clean en FastAPI, frontend React + Chakra UI, motor de cifrado SHA-256 y algoritmo genético de llaves operativo. El Sprint 1 cerró al **100%** tras completar la suite de pruebas unitarias (DEV-07).
 
 ---
 
-## Plan de Producción (Semanas 8 a 15)
+## Sprint 1 — Arquitectura Base y Cifrado `[DONE]`
 
-A partir de la semana 8, las tareas se distribuyen equitativamente para escalar el sistema Beta a Producción.
+| Feature | HU | SP | Estado |
+|---|---|---|---|
+| Arquitectura Clean Architecture (backend + frontend) | HU-01 | 8 | Done |
+| Endpoint POST /api/votar con cifrado SHA-256 | HU-02 | 5 | Done |
+| Módulo de Algoritmo Genético de llaves | HU-03 | 5 | Done |
+| Formulario de votación y comprobante (frontend) | HU-02 | 5 | Done |
+| Endpoint GET /api/votos_audit | HU-02 | 3 | Done |
+| Sistema de derivación de solicitudes básico | HU-04 | 5 | Done |
+| Health check endpoint `/health` | HU-01 | 1 | Done |
+| Suite de pruebas unitarias — 97% cobertura | DEV-07 | 3 | Done |
+| Integración Jira ↔ GitHub (Smart Commits) | DEV-08 | 1 | Done |
+| Documentación README y roadmap inicial | DEV-09 | 1 | Done |
 
-### Semana 8: Presentación Parcial y Feedback
-* **Todos:** Exposición de la Beta actual. Recopilación de críticas del profesor y ajustes del backlog en Jira.
+**Velocidad del sprint:** 37 SP entregados
 
-### Semanas 9 y 10: Autenticación y Base de Datos (Seguridad Real)
-* **Alvaro:** Integración de JWT (Tokens) en el backend y control de sesiones seguras.
-* **Andrew:** Creación de las pantallas de Login / Registro y vistas protegidas en el Frontend.
-* **César:** Sustituir la memoria temporal de FastAPI por una Base de Datos real (PostgreSQL o SQLite) usando un ORM como SQLAlchemy.
-* **José:** Pruebas QA de inyección SQL y control de vulnerabilidades del login.
-* **Leonardo:** Encriptación de contraseñas de administradores y gestión de variables de entorno `.env`.
+---
 
-### Semanas 11 y 12: Panel de Administración y Estadísticas (Dashboard)
-* **Alvaro:** Desarrollar los endpoints estadísticos en FastAPI que contabilizan votos de manera agregada sin comprometer el anonimato del DNI.
-* **Andrew:** Implementar gráficos interactivos de resultados (diagramas de barras/pasteles) en React usando `Recharts`.
-* **César:** Programar un exportador de Reportes PDF/Excel para las Actas de Escrutinio en el backend.
-* **José:** Diseño del Mockup/Figma del Panel de Control de la ONPE/Administrador.
-* **Leonardo:** Pruebas de auditoría: garantizar que la suma de votos coincida exactamente con los hashes generados.
+## Sprint 2 — Persistencia, Autenticación y Testing `[IN PROGRESS]`
 
-### Semanas 13 y 14: Despliegue en la Nube (DevOps & Cloud)
-* **Alvaro:** Crear los `Dockerfile` para empaquetar el frontend y el backend de forma automatizada.
-* **Andrew:** Desplegar la aplicación web (React) en servicios gratuitos en la nube (Vercel o Netlify).
-* **César:** Desplegar la API (FastAPI) en un servicio como Render, Railway o AWS.
-* **José:** Configurar GitHub Actions (Integración Continua) para que los tests corran solos en cada *push*.
-* **Leonardo:** Configurar CORS para producción y vincular dominios SSL (HTTPS).
+**Objetivo del sprint:** Migrar de almacenamiento en memoria a base de datos relacional, implementar autenticación JWT y consolidar la cobertura de pruebas de integración.
 
-### Semana 15: Pruebas de Estrés y Documentación de Cierre
-* **Alvaro:** Refactorización final del código, verificando el cumplimiento estricto de SOLID.
-* **Andrew:** Limpieza de código no usado, pulido de animaciones visuales.
-* **César:** Optimización de velocidad de respuestas del backend.
-* **José & Leonardo:** Ejecutar pruebas de carga masiva (ej. JMeter / Locust) simulando 1000 usuarios votando a la vez, y redactar el informe final del SRS.
+| Feature / Epic | Ticket | SP | Prioridad |
+|---|---|---|---|
+| Migración a PostgreSQL con SQLAlchemy + Alembic | S2-01 | 13 | Crítica |
+| Autenticación JWT y control de sesión | S2-05 | 8 | Crítica |
+| Validación contra padrón electoral (mock) | S2-02 | 8 | Alta |
+| Tests de integración con BD y autenticación | S2-03 | 8 | Alta |
+| CI/CD con GitHub Actions | S2-04 | 5 | Alta |
+| Panel de administración RENIEC (frontend + backend) | S2-06 | 8 | Media |
+| GitHub for Jira — automatización de transiciones | S2-08 | 2 | Media |
+| Documentación API Swagger + README actualizado | S2-09 | 3 | Media |
+
+**Story Points estimados:** 55 SP
+
+### Detalle de features críticas
+
+**S2-01 — Migración a PostgreSQL**
+- Modelos ORM: `Voto`, `Solicitud`, `Usuario`
+- Migraciones con Alembic
+- Repositorios SQL que reemplazan los adaptadores en memoria
+- Variable de entorno `DATABASE_URL`
+
+**S2-05 — Autenticación JWT**
+- Endpoint `POST /api/auth/login` → retorna JWT con claims `sub`, `rol`, `exp`
+- Middleware de validación de token en `Authorization` header
+- Protección de `/api/votos_audit` y `/api/admin/*` con rol `admin`
+- Contraseñas hasheadas con bcrypt (factor 12), tokens con expiración 24 h
+
+**S2-02 — Validación contra padrón electoral**
+- Endpoint mock `GET /api/padron/{dni}` que simula consulta a RENIEC
+- Validación en `VotoService`: DNI en padrón, habilitado, no ha votado
+- Nuevas excepciones de dominio: `CiudadanoNoHabilitadoError`, `YaVotoError`
+
+**S2-04 — CI/CD GitHub Actions**
+- Pipeline: lint (flake8 + mypy + black) → pytest con cobertura → fallo si < 85%
+- Protección de rama `main`: merge bloqueado si CI falla
+
+### Definition of Done — Sprint 2
+- Votos persisten tras reiniciar el servidor
+- Endpoints sensibles rechazados sin token válido (401 / 403)
+- Cobertura de tests ≥ 90% (integración + unitarios)
+- CI ejecutándose en cada PR con badge verde en README
+- Swagger actualizado con esquemas de autenticación
+
+---
+
+## Sprint 3 — Dashboard y Estadísticas `[BACKLOG]`
+
+**Objetivo:** Panel de administración avanzado con visualización de datos, reportes y auditoría de integridad.
+
+| Feature | Ticket | SP |
+|---|---|---|
+| Endpoints estadísticos agregados (votos/hora, votos/dependencia) | S3-01 | 8 |
+| Gráficos interactivos con Recharts | S3-02 | 8 |
+| Exportador de reportes PDF / CSV | S3-03 | 8 |
+| Diseño UI/UX del panel admin (Figma + style guide) | S3-04 | 5 |
+| Endpoint de verificación de integridad de BD | S3-05 | 5 |
+| Logging estructurado (JSON) y monitoreo | S3-06 | 8 |
+
+**Story Points estimados:** 42 SP
+
+---
+
+## Sprint 4 — DevOps y Despliegue en Producción `[BACKLOG]`
+
+**Objetivo:** Contenedorización completa y despliegue en nube con alta disponibilidad.
+
+| Feature | Ticket | SP |
+|---|---|---|
+| Dockerización multi-stage (backend + frontend + PostgreSQL) | S4-01 | 8 |
+| Despliegue frontend en Vercel / Netlify | S4-02 | 5 |
+| Despliegue backend en Render / Railway / AWS | S4-03 | 8 |
+| Configuración CORS y headers de seguridad para producción | S4-04 | 3 |
+| Monitoreo de producción (UptimeRobot + alertas) | S4-05 | 5 |
+| SSL y dominio personalizado | S4-06 | 5 |
+
+**Story Points estimados:** 34 SP
+
+---
+
+## Sprint 5 — Optimización y Pruebas de Carga `[BACKLOG]`
+
+**Objetivo:** Garantizar rendimiento bajo carga masiva y documentación de cierre del proyecto.
+
+| Feature | Ticket | SP |
+|---|---|---|
+| Refactorización SOLID y code review final | S5-01 | 8 |
+| Limpieza de código frontend (lazy loading, bundle split) | S5-02 | 5 |
+| Optimización de queries SQL (índices, paginación) | S5-03 | 5 |
+| Pruebas de carga con Locust — 1 000 usuarios concurrentes | S5-04 | 8 |
+| Pruebas de seguridad (OWASP ZAP, inyección, XSS, CSRF) | S5-05 | 5 |
+| Documentación final (manual usuario, admin y técnico) | S5-06 | 3 |
+
+**Story Points estimados:** 34 SP
+
+---
+
+## Resumen del Backlog
+
+| Sprint | Epic principal | SP | Estado |
+|---|---|---|---|
+| Sprint 1 | Arquitectura base + cifrado | 37 | Done |
+| Sprint 2 | Persistencia + autenticación | 55 | In Progress |
+| Sprint 3 | Dashboard + estadísticas | 42 | Backlog |
+| Sprint 4 | DevOps + producción | 34 | Backlog |
+| Sprint 5 | Optimización + cierre | 34 | Backlog |
+| **Total** | | **202 SP** | **18% completado** |
