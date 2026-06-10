@@ -4,6 +4,7 @@
 [![Stack](https://img.shields.io/badge/stack-React%20%7C%20FastAPI-brightgreen)](#)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue)](#)
 [![Node](https://img.shields.io/badge/Node.js-18%2B-green)](#)
+[![Coverage](https://img.shields.io/badge/coverage-97%25-brightgreen)](#)
 
 Sistema de **Mesa de Partes Electrónica** para la automatización del registro y derivación de solicitudes de voto. Reduce tiempos de espera y previene fraudes mediante cifrado SHA-256 y llaves dinámicas generadas por algoritmos genéticos.
 
@@ -33,17 +34,19 @@ El sistema cubre dos grandes flujos:
 VotingSystem/
 ├── backend/                    # API REST con FastAPI (Python)
 │   ├── app.py                  # Punto de entrada (uvicorn)
+│   ├── pytest.ini              # Configuración de pytest
 │   ├── requirements.txt        # Dependencias Python
-│   └── src/
-│       ├── config.py           # Configuración centralizada (env vars)
-│       ├── main.py             # App factory de FastAPI + CORS + routers
-│       ├── modelos/            # Entidades de dominio (Pydantic)
-│       ├── servicios/          # Lógica de negocio (cifrado, GA, derivación)
-│       ├── repositorios/       # Capa de persistencia (en memoria / reemplazable)
-│       ├── rutas/              # Endpoints: votos, admin, solicitudes
-│       ├── excepciones/        # Errores de dominio y handlers HTTP
-│       ├── utilidades/         # SHA-256, algoritmo genético de llaves
-│       └── logging_config.py   # Logging estructurado
+│   ├── src/
+│   │   ├── config.py           # Configuración centralizada (env vars)
+│   │   ├── main.py             # App factory de FastAPI + CORS + routers
+│   │   ├── modelos/            # Entidades de dominio (Pydantic)
+│   │   ├── servicios/          # Lógica de negocio (cifrado, GA, derivación)
+│   │   ├── repositorios/       # Capa de persistencia (en memoria / reemplazable)
+│   │   ├── rutas/              # Endpoints: votos, admin, solicitudes
+│   │   ├── excepciones/        # Errores de dominio y handlers HTTP
+│   │   ├── utilidades/         # SHA-256, algoritmo genético de llaves
+│   │   └── logging_config.py   # Logging estructurado
+│   └── tests/                  # Suite de pruebas (75 tests, 97% cobertura)
 │
 ├── frontend/                   # SPA con React + TypeScript + Vite
 │   ├── index.html
@@ -75,6 +78,7 @@ VotingSystem/
 | **Pydantic v2**          | Validación y serialización de datos                        |
 | **SHA-256** (stdlib)     | Cifrado del voto para garantizar anonimato                 |
 | **Algoritmos Genéticos** | Generación de llaves evolutivas dinámicas                  |
+| **pytest + pytest-cov**  | Suite de tests automatizados (75 tests, 97% cobertura)      |
 
 ### Frontend
 
@@ -114,7 +118,15 @@ uvicorn src.main:app --reload --port 8000
 - API en: `http://localhost:8000`
 - Swagger UI: `http://localhost:8000/docs`
 
-### 2. Frontend
+### 2. Tests (backend)
+
+```bash
+cd backend
+source .venv/bin/activate
+pytest --cov=src --cov-report=term
+```
+
+### 3. Frontend
 
 ```bash
 cd frontend
