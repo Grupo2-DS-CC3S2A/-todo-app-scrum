@@ -15,6 +15,7 @@ from src.rutas import (
     admin_solicitudes_router,
     auth_router,
     votos_router,
+    validacion_router,
 )
 
 logger = get_logger(__name__)
@@ -36,6 +37,7 @@ def create_app() -> FastAPI:
     )
     register_exception_handlers(app)
     app.include_router(auth_router)
+    app.include_router(validacion_router)
     app.include_router(votos_router)
     app.include_router(admin_solicitudes_router)
 
