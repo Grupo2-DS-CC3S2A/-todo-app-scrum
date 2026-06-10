@@ -1,5 +1,6 @@
 # Mesa de Partes — Voto Electrónico Seguro
 
+[![CI](https://github.com/Grupo2-DS-CC3S2A/-todo-app-scrum/actions/workflows/ci.yml/badge.svg)](https://github.com/Grupo2-DS-CC3S2A/-todo-app-scrum/actions/workflows/ci.yml)
 [![Stack](https://img.shields.io/badge/stack-React%20%7C%20FastAPI-brightgreen)](#)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue)](#)
 [![Node](https://img.shields.io/badge/Node.js-18%2B-green)](#)
@@ -14,13 +15,13 @@ Sistema de **Mesa de Partes Electrónica** para la automatización del registro 
 
 El sistema cubre dos grandes flujos:
 
-| Funcionalidad | Descripción |
-|---|---|
-| **Emisión de voto seguro** | El ciudadano ingresa su DNI e ID de candidato. El backend genera un hash SHA-256 del voto junto con una llave evolutiva producida por un algoritmo genético. Se devuelve un comprobante con hash, llave y timestamp. |
-| **Derivación de solicitudes** | Un administrador puede derivar solicitudes a la dependencia correspondiente (Registro Civil, Identificación, GRIAS, Imagenología, etc.) según el tipo de trámite. |
-| **Auditoría** | Endpoint de auditoría que devuelve todos los votos cifrados almacenados para verificación interna. |
-| **Consulta de estado** | Permite consultar el estado de una solicitud derivada por su ID. |
-| **Health check** | Endpoint `/health` para monitoreo de disponibilidad del servicio. |
+| Funcionalidad                 | Descripción                                                                                                                                                                                                          |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Emisión de voto seguro**    | El ciudadano ingresa su DNI e ID de candidato. El backend genera un hash SHA-256 del voto junto con una llave evolutiva producida por un algoritmo genético. Se devuelve un comprobante con hash, llave y timestamp. |
+| **Derivación de solicitudes** | Un administrador puede derivar solicitudes a la dependencia correspondiente (Registro Civil, Identificación, GRIAS, Imagenología, etc.) según el tipo de trámite.                                                    |
+| **Auditoría**                 | Endpoint de auditoría que devuelve todos los votos cifrados almacenados para verificación interna.                                                                                                                   |
+| **Consulta de estado**        | Permite consultar el estado de una solicitud derivada por su ID.                                                                                                                                                     |
+| **Health check**              | Endpoint `/health` para monitoreo de disponibilidad del servicio.                                                                                                                                                    |
 
 > **Nota sobre persistencia:** Actualmente el repositorio de solicitudes es **en memoria** (se reinicia al apagar el servidor). No hay base de datos relacional conectada aún — es el siguiente paso planificado en el roadmap.
 
@@ -65,27 +66,30 @@ VotingSystem/
 ## Tecnologías
 
 ### Backend
-| Tecnología | Uso |
-|---|---|
-| **Python 3.10+** | Lenguaje principal del servidor |
-| **FastAPI** | Framework web asíncrono, genera Swagger UI automáticamente |
-| **Uvicorn** | Servidor ASGI de alta performance |
-| **Pydantic v2** | Validación y serialización de datos |
-| **SHA-256** (stdlib) | Cifrado del voto para garantizar anonimato |
-| **Algoritmos Genéticos** | Generación de llaves evolutivas dinámicas |
+
+| Tecnología               | Uso                                                        |
+| ------------------------ | ---------------------------------------------------------- |
+| **Python 3.10+**         | Lenguaje principal del servidor                            |
+| **FastAPI**              | Framework web asíncrono, genera Swagger UI automáticamente |
+| **Uvicorn**              | Servidor ASGI de alta performance                          |
+| **Pydantic v2**          | Validación y serialización de datos                        |
+| **SHA-256** (stdlib)     | Cifrado del voto para garantizar anonimato                 |
+| **Algoritmos Genéticos** | Generación de llaves evolutivas dinámicas                  |
 
 ### Frontend
-| Tecnología | Uso |
-|---|---|
-| **React 18 + TypeScript** | UI reactiva con tipado estricto |
-| **Vite** | Bundler y servidor de desarrollo ultrarrápido |
-| **Chakra UI v3** | Sistema de componentes con paleta institucional RENIEC |
+
+| Tecnología                | Uso                                                    |
+| ------------------------- | ------------------------------------------------------ |
+| **React 18 + TypeScript** | UI reactiva con tipado estricto                        |
+| **Vite**                  | Bundler y servidor de desarrollo ultrarrápido          |
+| **Chakra UI v3**          | Sistema de componentes con paleta institucional RENIEC |
 
 ### Infraestructura / Flujo
-| Herramienta | Uso |
-|---|---|
-| **Git + GitHub** | Control de versiones, ramas `main` / `develop` / `feature/*` |
-| **Jira (Smart Commits)** | Trazabilidad de tickets desde los mensajes de commit |
+
+| Herramienta              | Uso                                                          |
+| ------------------------ | ------------------------------------------------------------ |
+| **Git + GitHub**         | Control de versiones, ramas `main` / `develop` / `feature/*` |
+| **Jira (Smart Commits)** | Trazabilidad de tickets desde los mensajes de commit         |
 
 ---
 
@@ -124,10 +128,10 @@ npm run dev
 
 ## Integrantes — Grupo 2
 
-| Nombre |
-|---|
+| Nombre                     |
+| -------------------------- |
 | Alvaro Jesus Taipe Cotrina |
-| Andrew Owim Inga Rojas |
-| César Omar López Arteaga |
-| Jose Alfredo Palomino |
-| Leonardo Chacón |
+| Andrew Owim Inga Rojas     |
+| César Omar López Arteaga   |
+| Jose Alfredo Palomino      |
+| Leonardo Chacón            |
