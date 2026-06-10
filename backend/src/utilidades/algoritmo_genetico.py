@@ -58,9 +58,7 @@ class Poblacion:
         """Genera una poblacion inicial con cromosomas aleatorios."""
         if tamano < 2:
             raise ValueError("La poblacion debe tener al menos 2 individuos.")
-        individuos = tuple(
-            Cromosoma.aleatorio(longitud_gen) for _ in range(tamano)
-        )
+        individuos = tuple(Cromosoma.aleatorio(longitud_gen) for _ in range(tamano))
         return cls(individuos=individuos)
 
     def seleccionar_padres(self) -> tuple[Cromosoma, Cromosoma]:

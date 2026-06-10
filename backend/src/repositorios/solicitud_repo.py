@@ -62,9 +62,7 @@ class SolicitudRepository(ABC):
         """Lista todas las solicitudes emitidas por un usuario."""
 
     @abstractmethod
-    def listar_por_dependencia(
-        self, dependencia: Dependencia
-    ) -> list[Solicitud]:
+    def listar_por_dependencia(self, dependencia: Dependencia) -> list[Solicitud]:
         """Lista todas las solicitudes asignadas a una dependencia."""
 
     @abstractmethod
@@ -119,15 +117,9 @@ class RepositorioSolicitudEnMemoria(SolicitudRepository):
 
     def listar_por_usuario(self, usuario_id: str) -> list[Solicitud]:
         with self._lock:
-            return [
-                s
-                for s in self._solicitudes.values()
-                if s.usuario_id == usuario_id
-            ]
+            return [s for s in self._solicitudes.values() if s.usuario_id == usuario_id]
 
-    def listar_por_dependencia(
-        self, dependencia: Dependencia
-    ) -> list[Solicitud]:
+    def listar_por_dependencia(self, dependencia: Dependencia) -> list[Solicitud]:
         with self._lock:
             return [
                 s
@@ -137,9 +129,7 @@ class RepositorioSolicitudEnMemoria(SolicitudRepository):
 
     def listar_por_estado(self, estado: EstadoSolicitud) -> list[Solicitud]:
         with self._lock:
-            return [
-                s for s in self._solicitudes.values() if s.estado == estado
-            ]
+            return [s for s in self._solicitudes.values() if s.estado == estado]
 
     def listar_todas(self) -> list[Solicitud]:
         with self._lock:
