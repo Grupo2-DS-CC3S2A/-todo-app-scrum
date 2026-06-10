@@ -114,9 +114,7 @@ class AuthService:
             )
         except JWTError as exc:
             logger.warning("Token JWT invalido: %s", exc)
-            raise TokenInvalidoError(
-                "Token de acceso invalido o expirado."
-            ) from exc
+            raise TokenInvalidoError("Token de acceso invalido o expirado.") from exc
         if "sub" not in payload or "rol" not in payload:
             raise TokenInvalidoError("Token sin claims requeridos.")
         return payload
@@ -131,13 +129,9 @@ class AuthService:
         try:
             usuario = self._repo.obtener_por_username(payload.username)
         except Exception:
-            raise CredencialesInvalidasError(
-                "Usuario o contrasena incorrectos."
-            )
+            raise CredencialesInvalidasError("Usuario o contrasena incorrectos.")
         if not self.verificar_password(payload.password, usuario.password_hash):
-            raise CredencialesInvalidasError(
-                "Usuario o contrasena incorrectos."
-            )
+            raise CredencialesInvalidasError("Usuario o contrasena incorrectos.")
         logger.info("Login exitoso | username=%s", usuario.username)
         return self.emitir_token(usuario)
 
@@ -171,9 +165,7 @@ class AuthService:
         try:
             admin = Usuario(
                 username=settings.admin_seed_username,
-                password_hash=self.hashear_password(
-                    settings.admin_seed_password
-                ),
+                password_hash=self.hashear_password(settings.admin_seed_password),
                 rol=RolUsuario.ADMIN,
             )
             self._repo.guardar(admin)

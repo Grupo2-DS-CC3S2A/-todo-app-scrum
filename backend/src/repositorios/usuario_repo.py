@@ -69,9 +69,7 @@ class RepositorioUsuarioEnMemoria(UsuarioRepository):
         if not cls._instance:
             with cls._singleton_lock:
                 if not cls._instance:
-                    cls._instance = super(
-                        RepositorioUsuarioEnMemoria, cls
-                    ).__new__(cls)
+                    cls._instance = super(RepositorioUsuarioEnMemoria, cls).__new__(cls)
                     cls._instance._inicializado = False
         return cls._instance
 
@@ -90,9 +88,7 @@ class RepositorioUsuarioEnMemoria(UsuarioRepository):
                     f"El username '{usuario.username}' ya esta registrado."
                 )
             if usuario.id in self._por_id:
-                raise UsuarioDuplicadoError(
-                    f"El usuario id '{usuario.id}' ya existe."
-                )
+                raise UsuarioDuplicadoError(f"El usuario id '{usuario.id}' ya existe.")
             self._por_id[usuario.id] = usuario
             self._por_username[usuario.username] = usuario.id
         logger.info(
@@ -117,9 +113,7 @@ class RepositorioUsuarioEnMemoria(UsuarioRepository):
         with self._lock:
             usuario = self._por_id.get(usuario_id)
         if usuario is None:
-            raise UsuarioNoEncontradoError(
-                f"No existe usuario con id '{usuario_id}'."
-            )
+            raise UsuarioNoEncontradoError(f"No existe usuario con id '{usuario_id}'.")
         return usuario
 
     def existe_username(self, username: str) -> bool:
