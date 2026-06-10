@@ -9,6 +9,14 @@ from src.modelos.solicitud import (
     SolicitudInput,
 )
 from src.modelos.voto import AuditoriaVotos, VotoCifrado, VotoInput
+from src.modelos.usuario import (
+    LoginInput,
+    RegistroInput,
+    RolUsuario,
+    TokenResponse,
+    Usuario,
+    UsuarioPublico,
+)
 
 __all__ = [
     "AuditoriaVotos",
@@ -20,4 +28,10 @@ __all__ = [
     "SolicitudInput",
     "VotoCifrado",
     "VotoInput",
+    "LoginInput",
+    "RegistroInput",
+    "RolUsuario",
+    "TokenResponse",
+    "Usuario",
+    "UsuarioPublico",
 ]

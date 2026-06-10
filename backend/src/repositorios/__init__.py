@@ -10,9 +10,17 @@ from src.repositorios.solicitud_repo import (
     SolicitudRepository,
     get_solicitud_repository,
 )
+from src.repositorios.usuario_repo import (
+    RepositorioUsuarioEnMemoria,
+    UsuarioRepository,
+    get_usuario_repository,
+)
 
 __all__ = [
     "RepositorioSolicitudEnMemoria",
     "SolicitudRepository",
     "get_solicitud_repository",
+    "RepositorioUsuarioEnMemoria",
+    "UsuarioRepository",
+    "get_usuario_repository",
 ]
