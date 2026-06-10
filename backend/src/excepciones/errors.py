@@ -50,6 +50,36 @@ class NoAutorizadoError(DominioVotacionError):
     http_status: int = status.HTTP_403_FORBIDDEN
 
 
+class CredencialesInvalidasError(DominioVotacionError):
+    """Username/password no validos en login."""
+
+    http_status: int = status.HTTP_401_UNAUTHORIZED
+
+
+class TokenInvalidoError(DominioVotacionError):
+    """JWT ausente, malformado o expirado."""
+
+    http_status: int = status.HTTP_401_UNAUTHORIZED
+
+
+class PermisoDenegadoError(DominioVotacionError):
+    """Usuario autenticado sin rol suficiente."""
+
+    http_status: int = status.HTTP_403_FORBIDDEN
+
+
+class UsuarioDuplicadoError(DominioVotacionError):
+    """Username ya existe al registrar."""
+
+    http_status: int = status.HTTP_409_CONFLICT
+
+
+class UsuarioNoEncontradoError(DominioVotacionError):
+    """No existe usuario con el identificador dado."""
+
+    http_status: int = status.HTTP_404_NOT_FOUND
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     """Registra los handlers HTTP para las excepciones de dominio.
 

@@ -11,7 +11,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.config import settings
 from src.excepciones.errors import register_exception_handlers
 from src.logging_config import configure_logging, get_logger
-from src.rutas import admin_solicitudes_router, votos_router
+from src.rutas import (
+    admin_solicitudes_router,
+    auth_router,
+    votos_router,
+)
 
 logger = get_logger(__name__)
 
@@ -31,6 +35,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     register_exception_handlers(app)
+    app.include_router(auth_router)
     app.include_router(votos_router)
     app.include_router(admin_solicitudes_router)
 
