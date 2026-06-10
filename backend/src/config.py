@@ -9,6 +9,9 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parents[1]
 
 
 def _split_csv(value: str) -> list[str]:
@@ -42,6 +45,10 @@ class Settings:
     bcrypt_rounds: int = int(os.getenv("BCRYPT_ROUNDS", "12"))
     admin_seed_username: str = os.getenv("ADMIN_SEED_USERNAME", "admin")
     admin_seed_password: str = os.getenv("ADMIN_SEED_PASSWORD", "Admin123!")
+    validation_db_path: str = os.getenv(
+        "VALIDATION_DB_PATH",
+        str(BASE_DIR / "data" / "validation.db"),
+    )
 
 
 settings: Settings = Settings()
