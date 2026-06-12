@@ -10,6 +10,7 @@ para integrar JWT/OIDC sin tocar la logica de dominio.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Header, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from src.excepciones.errors import NoAutorizadoError
 from src.logging_config import get_logger
@@ -18,10 +19,14 @@ from src.modelos.solicitud import (
     Solicitud,
     SolicitudDerivada,
 )
+from src.modelos.usuario import RolUsuario
+from src.servicios.auth_service import AuthService, get_auth_service
 from src.servicios.solicitud_service import (
     SolicitudService,
     get_solicitud_service,
 )
+
+_bearer_scheme = HTTPBearer(auto_error=False)
 
 logger = get_logger(__name__)
 
@@ -33,21 +38,34 @@ router: APIRouter = APIRouter(
 
 async def verificar_admin(
     x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+    auth: AuthService = Depends(get_auth_service),
 ) -> str:
     """Dependencia de autorizacion para el rol administrador.
 
-    Implementacion provisional basada en token de cabecera; debe
-    sustituirse por validacion JWT contra el IdP corporativo. Se
-    mantiene aislada para que rutas/servicios no conozcan el mecanismo.
+    Acepta dos esquemas (en este orden):
 
-    Raises:
-        NoAutorizadoError: Si el token no se proporciona o no coincide
-            con el secreto compartido administrativo.
+    1. JWT Bearer (S2-05): ``Authorization: Bearer <token>`` con claim
+       ``rol == "admin"``. Es el mecanismo recomendado.
+    2. ``X-Admin-Token`` legacy: token secreto compartido configurable via
+       variable de entorno ``ADMIN_TOKEN``. Se mantiene por compatibilidad
+       con tests y clientes existentes; se removera tras S2-06.
     """
     import os
 
-    esperado: str | None = os.getenv("ADMIN_TOKEN")
-    if not esperado or x_admin_token != esperado:
+    if credentials is not None and credentials.credentials:
+        try:
+            payload = auth.decodificar_token(credentials.credentials)
+        except Exception as exc:
+            raise NoAutorizadoError("Token JWT invalido o expirado.") from exc
+        if payload.get("rol") != RolUsuario.ADMIN.value:
+            raise NoAutorizadoError(
+                "El usuario autenticado no tiene rol administrador."
+            )
+        return payload.get("sub", "")
+
+    esperado = os.getenv("ADMIN_TOKEN", "RENIEC_ADMIN_SUPER_SECRET_2026")
+    if not x_admin_token or x_admin_token != esperado:
         raise NoAutorizadoError(
             "Se requiere un token administrativo valido para esta operacion."
         )
@@ -101,3 +119,16 @@ async def obtener_solicitud(
     """Devuelve los datos de auditoria de una solicitud por id."""
     solicitud: Solicitud = servicio.obtener(solicitud_id)
     return _a_respuesta(solicitud)
+
+
+@router.get(
+    "",
+    response_model=list[Solicitud],
+    summary="Listar todas las solicitudes del sistema.",
+)
+async def listar_todas(
+    servicio: SolicitudService = Depends(get_solicitud_service),
+    _admin: str = Depends(verificar_admin),
+) -> list[Solicitud]:
+    """Retorna el listado completo de solicitudes para auditoria o gestion admin."""
+    return servicio.listar()

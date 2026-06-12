@@ -82,9 +82,7 @@ class SolicitudInput(BaseModel):
     fecha_maxima_respuesta: Annotated[
         datetime,
         Field(
-            description=(
-                "Fecha limite (UTC) en la que la dependencia debe responder."
-            ),
+            description=("Fecha limite (UTC) en la que la dependencia debe responder."),
         ),
     ]
 
