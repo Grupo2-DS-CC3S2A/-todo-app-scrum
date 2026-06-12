@@ -3,6 +3,10 @@
  *
  * Aisla a las capas superiores del transporte ``fetch`` y unifica el
  * tratamiento de errores via {@link ApiError}.
+ *
+ * Los endpoints de admin aceptan ``Authorization: Bearer <token>`` (S2-05).
+ * El esquema ``X-Admin-Token`` sigue siendo aceptado por el backend pero
+ * este cliente ya no lo emite (SCRUM-24).
  */
 
 import { ApiError, type ApiErrorBody } from "@/types/voting";
@@ -27,11 +31,14 @@ async function parseError(response: Response): Promise<ApiError> {
   return new ApiError(response.status, detail, tipo);
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, token: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       ...init,
     });
   } catch {
@@ -41,21 +48,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-export function listarSolicitudesEntrantes(): Promise<readonly Solicitud[]> {
-  return request<readonly Solicitud[]>("/api/admin/solicitudes");
+export function listarSolicitudesEntrantes(
+  token: string,
+): Promise<readonly Solicitud[]> {
+  return request<readonly Solicitud[]>("/api/admin/solicitudes", token);
 }
 
 export function derivarSolicitud(
-  _idSolicitud: string,
+  _idSolicitud: number,
   payload: DerivacionInput,
-  adminToken: string,
+  token: string,
 ): Promise<Solicitud> {
-  return request<Solicitud>("/api/admin/solicitudes/derivar", {
+  return request<Solicitud>("/api/admin/solicitudes/derivar", token, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Admin-Token": adminToken,
-    },
     body: JSON.stringify(payload),
   });
 }

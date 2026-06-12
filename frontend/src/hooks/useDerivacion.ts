@@ -4,6 +4,9 @@
  * Lista solicitudes entrantes y ejecuta la derivacion contra el backend,
  * exponiendo loading/error/data al componente sin acoplarlo a ``fetch``
  * (Single Responsibility Principle).
+ *
+ * SCRUM-24: el JWT se obtiene de ``useAuth`` y se inyecta en cada llamada
+ * al API. Las peticiones se suspenden si no hay sesion activa.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -12,6 +15,7 @@ import {
   derivarSolicitud,
   listarSolicitudesEntrantes,
 } from "@/api/derivacionApi";
+import { useAuth } from "@/hooks/useAuth";
 import { ApiError } from "@/types/voting";
 import type { DerivacionInput, Solicitud } from "@/types/derivacion";
 
@@ -48,12 +52,14 @@ function aApiError(err: unknown): ApiError {
 }
 
 export function useDerivacion(): UseDerivacionResult {
+  const { sesion } = useAuth();
   const [estado, setEstado] = useState<UseDerivacionState>(ESTADO_INICIAL);
 
   const recargar = useCallback(async (): Promise<void> => {
+    if (!sesion) return;
     setEstado((prev) => ({ ...prev, cargandoListado: true, errorListado: null }));
     try {
-      const solicitudes = await listarSolicitudesEntrantes();
+      const solicitudes = await listarSolicitudesEntrantes(sesion.token);
       setEstado((prev) => ({
         ...prev,
         solicitudes,
@@ -66,13 +72,20 @@ export function useDerivacion(): UseDerivacionResult {
         errorListado: aApiError(err),
       }));
     }
-  }, []);
+  }, [sesion]);
 
   const derivar = useCallback(
     async (
       idSolicitud: number,
       payload: DerivacionInput,
     ): Promise<Solicitud | null> => {
+      if (!sesion) {
+        setEstado((prev) => ({
+          ...prev,
+          errorDerivacion: new ApiError(401, "Se requiere autenticacion."),
+        }));
+        return null;
+      }
       setEstado((prev) => ({
         ...prev,
         enviandoDerivacion: true,
@@ -80,7 +93,7 @@ export function useDerivacion(): UseDerivacionResult {
         ultimaDerivada: null,
       }));
       try {
-        const derivada = await derivarSolicitud(idSolicitud, payload);
+        const derivada = await derivarSolicitud(idSolicitud, payload, sesion.token);
         setEstado((prev) => ({
           ...prev,
           enviandoDerivacion: false,
@@ -97,13 +110,14 @@ export function useDerivacion(): UseDerivacionResult {
         return null;
       }
     },
-    [],
+    [sesion],
   );
 
   const limpiarUltima = useCallback((): void => {
     setEstado((prev) => ({ ...prev, ultimaDerivada: null }));
   }, []);
 
+  // Carga el listado cuando la sesion queda disponible.
   useEffect(() => {
     void recargar();
   }, [recargar]);
