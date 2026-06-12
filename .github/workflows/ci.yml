@@ -1,0 +1,47 @@
+name: Backend CI
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+    branches: ['main']
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    # Configura el directorio de trabajo por defecto para todos los comandos run
+    defaults:
+      run:
+        working-directory: ./backend
+
+    steps:
+      - name: Checkout del codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip' # Acelera la ejecucion cacheando las dependencias
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # Instalamos las herramientas de testing y linting
+          pip install black flake8 mypy pytest pytest-cov
+
+      - name: Verificar formato con balck
+        run: black --check src/
+
+      - name: Analisis con Flake8
+        run: flake8 src/
+
+      - name: Verificacion de tipos con Mypy
+        run: mypy src/
+
+      - name: Ejecutar pruebas y cobertura (Falla si < 85%)
+        run: pytest --cov=src --cov-fail-under=85

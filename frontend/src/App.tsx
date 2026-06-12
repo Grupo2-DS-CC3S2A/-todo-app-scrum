@@ -1,20 +1,37 @@
 /**
- * Componente raiz: compone Header, formulario y comprobante.
+ * Componente raiz: controla el flujo de autenticacion y compone las vistas.
  *
- * Layout de dos columnas: imagen institucional a la izquierda,
- * formulario de voto a la derecha. Paleta institucional RENIEC.
+ * Flujo de renderizado:
+ * 1. Mientras ``useAuth`` restaura la sesion desde localStorage → spinner.
+ * 2. Sin sesion activa → ``LoginPage``.
+ * 3. Con sesion activa → layout principal con formulario de voto y, si el
+ *    rol es ``admin``, panel de derivacion de solicitudes.
  */
 
 import { useEffect, type ReactElement } from "react";
-import { Box, Flex, Image, Stack, Text, Heading } from "@chakra-ui/react";
+import {
+  Box,
+  Button,
+  Flex,
+  Heading,
+  Image,
+  Spinner,
+  Stack,
+  Text,
+} from "@chakra-ui/react";
 
+import { AdminDerivacionPanel } from "@/components/AdminDerivacionPanel";
+import { LoginPage } from "@/components/LoginPage";
 import { VotingForm } from "@/components/VotingForm";
 import { VotingReceipt } from "@/components/VotingReceipt";
 import { toaster } from "@/components/ui/toaster";
+import { useAuth } from "@/hooks/useAuth";
 import { useVoting } from "@/hooks/useVoting";
 
-export default function App(): ReactElement {
+function VistaAutenticada(): ReactElement {
+  const { sesion, cerrarSesion } = useAuth();
   const { comprobante, cargando, error, votar } = useVoting();
+  const esAdmin = sesion?.usuario.rol === "admin";
 
   useEffect(() => {
     if (error) {
@@ -40,20 +57,44 @@ export default function App(): ReactElement {
     <Box minH="100vh" bg="gray.50" color="gray.800">
       {/* Barra superior institucional */}
       <Box bg="#1A3A6B" py={3} px={8}>
-        <Flex align="center" gap={3}>
-          <Image src="/reniec_logo.png" alt="RENIEC" h="40px" />
-          <Box>
-            <Text color="white" fontWeight="bold" fontSize="sm" letterSpacing="wider">
-              RENIEC
-            </Text>
-            <Text color="blue.200" fontSize="xs">
-              Registro Nacional de Identificacion y Estado Civil
-            </Text>
-          </Box>
+        <Flex align="center" justify="space-between">
+          <Flex align="center" gap={3}>
+            <Image src="/reniec_logo.png" alt="RENIEC" h="40px" />
+            <Box>
+              <Text color="white" fontWeight="bold" fontSize="sm" letterSpacing="wider">
+                RENIEC
+              </Text>
+              <Text color="blue.200" fontSize="xs">
+                Registro Nacional de Identificacion y Estado Civil
+              </Text>
+            </Box>
+          </Flex>
+
+          <Flex align="center" gap={4}>
+            <Box textAlign="right">
+              <Text color="white" fontSize="sm" fontWeight="medium">
+                {sesion?.usuario.username}
+              </Text>
+              <Text color="blue.200" fontSize="xs" textTransform="capitalize">
+                {sesion?.usuario.rol}
+              </Text>
+            </Box>
+            <Button
+              size="sm"
+              variant="outline"
+              colorPalette="whiteAlpha"
+              color="white"
+              borderColor="whiteAlpha.400"
+              onClick={cerrarSesion}
+              _hover={{ bg: "whiteAlpha.200" }}
+            >
+              Cerrar sesion
+            </Button>
+          </Flex>
         </Flex>
       </Box>
 
-      {/* Contenido principal centrado */}
+      {/* Contenido principal */}
       <Flex
         minH="calc(100vh - 64px)"
         align="center"
@@ -110,7 +151,7 @@ export default function App(): ReactElement {
           </Box>
         </Box>
 
-        {/* Panel derecho — formulario */}
+        {/* Panel derecho */}
         <Box
           flex="1"
           bg="white"
@@ -146,6 +187,12 @@ export default function App(): ReactElement {
 
             {comprobante && <VotingReceipt comprobante={comprobante} />}
 
+            {esAdmin && (
+              <Box mt={4}>
+                <AdminDerivacionPanel />
+              </Box>
+            )}
+
             <Text color="gray.400" fontSize="xs" textAlign="center" mt={2}>
               Sistema protegido bajo normas de la Ley N° 27269 — RENIEC 2026
             </Text>
@@ -154,4 +201,22 @@ export default function App(): ReactElement {
       </Flex>
     </Box>
   );
+}
+
+export default function App(): ReactElement {
+  const { isAutenticado, cargando } = useAuth();
+
+  if (cargando) {
+    return (
+      <Flex minH="100vh" align="center" justify="center" bg="gray.50">
+        <Spinner size="xl" color="#1A3A6B" />
+      </Flex>
+    );
+  }
+
+  if (!isAutenticado) {
+    return <LoginPage />;
+  }
+
+  return <VistaAutenticada />;
 }

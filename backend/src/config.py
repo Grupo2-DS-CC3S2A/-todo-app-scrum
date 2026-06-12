@@ -33,6 +33,15 @@ class Settings:
     ga_population_size: int = int(os.getenv("GA_POPULATION_SIZE", "10"))
     ga_key_length: int = int(os.getenv("GA_KEY_LENGTH", "8"))
     ga_mutation_rate: float = float(os.getenv("GA_MUTATION_RATE", "0.125"))
+    jwt_secret_key: str = os.getenv(
+        "SECRET_KEY_JWT",
+        "RENIEC_JWT_DEV_SECRET_CHANGE_IN_PROD_2026",
+    )
+    jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
+    jwt_expire_hours: int = int(os.getenv("JWT_EXPIRE_HOURS", "24"))
+    bcrypt_rounds: int = int(os.getenv("BCRYPT_ROUNDS", "12"))
+    admin_seed_username: str = os.getenv("ADMIN_SEED_USERNAME", "admin")
+    admin_seed_password: str = os.getenv("ADMIN_SEED_PASSWORD", "Admin123!")
 
 
 settings: Settings = Settings()

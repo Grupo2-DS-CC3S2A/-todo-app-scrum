@@ -4,6 +4,7 @@ import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 
 import App from "@/App";
 import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from "@/hooks/AuthProvider";
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {
@@ -13,8 +14,10 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <StrictMode>
     <ChakraProvider value={defaultSystem}>
-      <App />
-      <Toaster />
+      <AuthProvider>
+        <App />
+        <Toaster />
+      </AuthProvider>
     </ChakraProvider>
   </StrictMode>,
 );
