@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 
 import App from "@/App";
+import "@/styles.css";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/hooks/AuthProvider";
 
