@@ -1,12 +1,4 @@
-/**
- * Formulario controlado para la emision del voto.
- *
- * No conoce de fetch ni de estado global: recibe un callback ``onSubmit`` y
- * un flag ``cargando`` desde el hook ``useVoting``.
- */
-
-import { useState, type FormEvent, type ReactElement } from "react";
-import { Box, Button, Card, Input, Stack, Text } from "@chakra-ui/react";
+import { useEffect, useState, type FormEvent, type ReactElement } from "react";
 
 import type { VotoInput } from "@/types/voting";
 
@@ -14,68 +6,76 @@ const DNI_PATTERN = /^\d{8}$/;
 
 export interface VotingFormProps {
   readonly cargando: boolean;
+  readonly dniInicial?: string;
+  readonly bloquearDni?: boolean;
   readonly onSubmit: (payload: VotoInput) => unknown;
   readonly onValidationError: (mensaje: string) => void;
 }
 
 export function VotingForm({
   cargando,
+  dniInicial = "",
+  bloquearDni = false,
   onSubmit,
   onValidationError,
 }: VotingFormProps): ReactElement {
-  const [dni, setDni] = useState<string>("");
-  const [candidatoId, setCandidatoId] = useState<string>("");
+  const [dni, setDni] = useState<string>(dniInicial);
+  const [candidatoId, setCandidatoId] = useState<string>("1");
+
+  useEffect(() => {
+    setDni(dniInicial);
+  }, [dniInicial]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     if (!DNI_PATTERN.test(dni)) {
-      onValidationError("El DNI debe tener exactamente 8 digitos.");
+      onValidationError("El DNI debe tener exactamente 8 digitos numericos.");
       return;
     }
     const idCandidato = Number.parseInt(candidatoId, 10);
     if (!Number.isInteger(idCandidato) || idCandidato < 1) {
-      onValidationError("Selecciona un id de candidato valido (>= 1).");
+      onValidationError("Selecciona un ID de candidato valido, mayor o igual que 1.");
       return;
     }
     void onSubmit({ dni_votante: dni, id_candidato: idCandidato });
   };
 
   return (
-    <Card.Root bg="gray.50" borderColor="gray.200" borderWidth="1px" p={5}>
-      <form onSubmit={handleSubmit} noValidate>
-        <Stack gap={4}>
-          <Box>
-            <Text mb={2} color="gray.700" fontWeight="medium" fontSize="sm">DNI del Votante</Text>
-            <Input
-              placeholder="Ingresa tu DNI (8 digitos)"
-              inputMode="numeric"
-              maxLength={8}
-              value={dni}
-              onChange={(e) => setDni(e.target.value.replace(/\D/g, ""))}
-              required
-            />
-          </Box>
-          <Box>
-            <Text mb={2} color="gray.700" fontWeight="medium" fontSize="sm">ID de Candidato</Text>
-            <Input
-              placeholder="Ej. 1"
-              type="number"
-              min={1}
-              value={candidatoId}
-              onChange={(e) => setCandidatoId(e.target.value)}
-              required
-            />
-          </Box>
-          <Button
-            type="submit"
-            colorPalette="blue"
-            loading={cargando}
-            loadingText="Procesando voto"
-          >
-            Emitir Voto Seguro
-          </Button>
-        </Stack>
-      </form>
-    </Card.Root>
+    <form className="voting-form" onSubmit={handleSubmit} noValidate>
+      <div className="form-group">
+        <label htmlFor="vote-dni">DNI del Votante</label>
+        <input
+          id="vote-dni"
+          type="text"
+          inputMode="numeric"
+          maxLength={8}
+          value={dni}
+          readOnly={bloquearDni}
+          onChange={(e) => setDni(e.target.value.replace(/\D/g, ""))}
+          placeholder="Ingrese DNI"
+          required
+        />
+        {bloquearDni && (
+          <p className="field-help">DNI tomado de la validacion de ingreso.</p>
+        )}
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="candidate-id">ID de Candidato</label>
+        <input
+          id="candidate-id"
+          type="number"
+          min={1}
+          value={candidatoId}
+          onChange={(e) => setCandidatoId(e.target.value)}
+          placeholder="Ej. 1"
+          required
+        />
+      </div>
+
+      <button className="btn btn-primary btn-full" type="submit" disabled={cargando}>
+        {cargando ? "Procesando voto..." : "Emitir Voto Seguro"}
+      </button>
+    </form>
   );
 }
