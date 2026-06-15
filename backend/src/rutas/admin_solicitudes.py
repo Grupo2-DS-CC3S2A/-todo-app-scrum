@@ -122,7 +122,7 @@ async def obtener_solicitud(
 
 
 @router.get(
-    "",
+    "/",
     response_model=list[Solicitud],
     summary="Listar todas las solicitudes del sistema.",
 )
