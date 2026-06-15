@@ -7,7 +7,12 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 
 from src.excepciones.errors import SolicitudDuplicadaError, SolicitudNoEncontradaError
-from src.modelos.solicitud import Dependencia, DerivacionInput, EstadoSolicitud, Solicitud
+from src.modelos.solicitud import (
+    Dependencia,
+    DerivacionInput,
+    EstadoSolicitud,
+    Solicitud,
+)
 from src.repositorios.solicitud_repo import RepositorioSolicitudEnMemoria
 from src.servicios.solicitud_service import (
     DIAS_HABILES_RESPUESTA,
@@ -49,12 +54,18 @@ class TestSumarDiasHabiles:
 
 
 class TestSolicitudService:
-    def test_derivar_crea_solicitud_pendiente(self, solicitud_service: SolicitudService):
+    def test_derivar_crea_solicitud_pendiente(
+        self, solicitud_service: SolicitudService
+    ):
         s = solicitud_service.derivar(_payload())
         assert s.estado == EstadoSolicitud.PENDIENTE
 
-    def test_derivar_asigna_dependencia_correcta(self, solicitud_service: SolicitudService):
-        s = solicitud_service.derivar(_payload(dependencia_asignada=Dependencia.ASESORIA_LEGAL))
+    def test_derivar_asigna_dependencia_correcta(
+        self, solicitud_service: SolicitudService
+    ):
+        s = solicitud_service.derivar(
+            _payload(dependencia_asignada=Dependencia.ASESORIA_LEGAL)
+        )
         assert s.dependencia_asignada == Dependencia.ASESORIA_LEGAL
 
     def test_derivar_calcula_fecha_maxima_30_dias_habiles(
@@ -80,7 +91,9 @@ class TestSolicitudService:
         with pytest.raises(SolicitudNoEncontradaError):
             solicitud_service.obtener("id-que-no-existe")
 
-    def test_listar_refleja_todas_las_solicitudes(self, solicitud_service: SolicitudService):
+    def test_listar_refleja_todas_las_solicitudes(
+        self, solicitud_service: SolicitudService
+    ):
         solicitud_service.derivar(_payload())
         solicitud_service.derivar(_payload())
         assert len(solicitud_service.listar()) == 2

@@ -31,7 +31,9 @@ def solicitud_service() -> SolicitudService:
 
 
 @pytest.fixture
-def client(voto_service: VotoService, solicitud_service: SolicitudService) -> TestClient:
+def client(
+    voto_service: VotoService, solicitud_service: SolicitudService
+) -> TestClient:
     app.dependency_overrides[get_voto_service] = lambda: voto_service
     app.dependency_overrides[get_solicitud_service] = lambda: solicitud_service
     with TestClient(app) as c:
