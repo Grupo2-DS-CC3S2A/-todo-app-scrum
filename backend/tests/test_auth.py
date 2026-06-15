@@ -56,9 +56,7 @@ def reset_usuarios_y_reseedea():
 
 
 def _login(client: TestClient, username: str, password: str):
-    return client.post(
-        URL_LOGIN, json={"username": username, "password": password}
-    )
+    return client.post(URL_LOGIN, json={"username": username, "password": password})
 
 
 def _token_admin(client: TestClient) -> str:
@@ -88,9 +86,7 @@ class TestLogin:
         assert resp.status_code == 401
         assert resp.json()["tipo"] == "CredencialesInvalidasError"
 
-    def test_login_usuario_inexistente_devuelve_401(
-        self, client: TestClient
-    ) -> None:
+    def test_login_usuario_inexistente_devuelve_401(self, client: TestClient) -> None:
         resp = _login(client, "no-existe-jamas", "Password123!")
         assert resp.status_code == 401
 
@@ -123,9 +119,7 @@ class TestMe:
         assert resp.status_code == 401
         assert resp.json()["tipo"] == "TokenInvalidoError"
 
-    def test_me_con_token_valido_devuelve_usuario(
-        self, client: TestClient
-    ) -> None:
+    def test_me_con_token_valido_devuelve_usuario(self, client: TestClient) -> None:
         token = _token_admin(client)
         resp = client.get(URL_ME, headers=_auth_header(token))
         assert resp.status_code == 200
@@ -133,9 +127,7 @@ class TestMe:
         assert body["username"] == ADMIN_USERNAME
         assert body["rol"] == RolUsuario.ADMIN.value
 
-    def test_me_con_token_expirado_devuelve_401(
-        self, client: TestClient
-    ) -> None:
+    def test_me_con_token_expirado_devuelve_401(self, client: TestClient) -> None:
         ahora = datetime.now(tz=timezone.utc)
         expirado = jwt.encode(
             {
@@ -165,22 +157,16 @@ class TestMe:
 
 # ------------------------------------------------------------- Register
 class TestRegister:
-    def _registrar(
-        self, client: TestClient, token: str, **overrides
-    ):
+    def _registrar(self, client: TestClient, token: str, **overrides):
         payload = {
             "username": "operador01",
             "password": "Operador123!",
             "rol": "operador",
         }
         payload.update(overrides)
-        return client.post(
-            URL_REGISTER, json=payload, headers=_auth_header(token)
-        )
+        return client.post(URL_REGISTER, json=payload, headers=_auth_header(token))
 
-    def test_register_sin_token_devuelve_401(
-        self, client: TestClient
-    ) -> None:
+    def test_register_sin_token_devuelve_401(self, client: TestClient) -> None:
         resp = client.post(
             URL_REGISTER,
             json={
@@ -191,9 +177,7 @@ class TestRegister:
         )
         assert resp.status_code == 401
 
-    def test_register_con_admin_crea_usuario(
-        self, client: TestClient
-    ) -> None:
+    def test_register_con_admin_crea_usuario(self, client: TestClient) -> None:
         token = _token_admin(client)
         resp = self._registrar(client, token)
         assert resp.status_code == 201, resp.text
@@ -201,9 +185,7 @@ class TestRegister:
         assert body["username"] == "operador01"
         assert body["rol"] == RolUsuario.OPERADOR.value
 
-    def test_register_con_rol_no_admin_devuelve_403(
-        self, client: TestClient
-    ) -> None:
+    def test_register_con_rol_no_admin_devuelve_403(self, client: TestClient) -> None:
         admin_token = _token_admin(client)
         # crea un operador
         self._registrar(client, admin_token).raise_for_status()
@@ -221,9 +203,7 @@ class TestRegister:
         assert resp.status_code == 403
         assert resp.json()["tipo"] == "PermisoDenegadoError"
 
-    def test_register_username_duplicado_devuelve_409(
-        self, client: TestClient
-    ) -> None:
+    def test_register_username_duplicado_devuelve_409(self, client: TestClient) -> None:
         token = _token_admin(client)
         assert self._registrar(client, token).status_code == 201
         dup = self._registrar(client, token)
@@ -253,9 +233,7 @@ class TestAdminProtegidoConJWT:
             },
             headers=_auth_header(admin_token),
         ).raise_for_status()
-        op_token = _login(client, "operador02", "Operador123!").json()[
-            "access_token"
-        ]
+        op_token = _login(client, "operador02", "Operador123!").json()["access_token"]
         resp = client.get(URL_ADMIN_LIST, headers=_auth_header(op_token))
         assert resp.status_code == 403
         assert resp.json()["tipo"] == "NoAutorizadoError"
