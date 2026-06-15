@@ -20,12 +20,6 @@ class DominioVotacionError(Exception):
         self.mensaje: str = mensaje
 
 
-class VotoDuplicadoError(DominioVotacionError):
-    """Se intento registrar un voto cuyo hash ya existe."""
-
-    http_status: int = status.HTTP_409_CONFLICT
-
-
 class SolicitudNoEncontradaError(DominioVotacionError):
     """La solicitud referenciada no existe."""
 

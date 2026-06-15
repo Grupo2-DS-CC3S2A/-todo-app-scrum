@@ -22,7 +22,7 @@ def _split_csv(value: str) -> list[str]:
 class Settings:
     """Parametros inmutables de la aplicacion."""
 
-    app_name: str = "Mesa de Partes - Voto Electronico Seguro"
+    app_name: str = "Mesa de Partes"
     api_version: str = "1.0.0"
     cors_origins: list[str] = field(
         default_factory=lambda: _split_csv(

@@ -89,7 +89,9 @@ def _jwt_personalizado(**claims) -> str:
 class TestLogin:
     def test_login_exitoso_devuelve_bearer_jwt(self, client: TestClient) -> None:
         """PASO 5 — login exitoso emite JWT con tipo 'bearer'."""
-        resp = client.post(URL_LOGIN, json={"username": ADMIN_USER, "password": ADMIN_PASS})
+        resp = client.post(
+            URL_LOGIN, json={"username": ADMIN_USER, "password": ADMIN_PASS}
+        )
         assert resp.status_code == 200
         body = resp.json()
         assert body["token_type"] == "bearer"
@@ -98,20 +100,26 @@ class TestLogin:
 
     def test_login_password_incorrecta_devuelve_401(self, client: TestClient) -> None:
         """PASO 4 — password incorrecta retorna 401 con mensaje de error."""
-        resp = client.post(URL_LOGIN, json={"username": ADMIN_USER, "password": "mal"*5})
+        resp = client.post(
+            URL_LOGIN, json={"username": ADMIN_USER, "password": "mal" * 5}
+        )
         assert resp.status_code == 401
         assert resp.json()["tipo"] == "CredencialesInvalidasError"
 
     def test_login_usuario_inexistente_devuelve_401(self, client: TestClient) -> None:
         """PASO 4 — usuario inexistente no revela si existe o no."""
-        resp = client.post(URL_LOGIN, json={"username": "fantasma", "password": "Password1!"})
+        resp = client.post(
+            URL_LOGIN, json={"username": "fantasma", "password": "Password1!"}
+        )
         assert resp.status_code == 401
         assert resp.json()["tipo"] == "CredencialesInvalidasError"
 
     def test_jwt_contiene_rol_y_sub(self, client: TestClient) -> None:
         """PASO 5 — el JWT emitido contiene los claims sub, rol y exp."""
         token = _token_admin(client)
-        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+        payload = jwt.decode(
+            token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm]
+        )
         assert payload["rol"] == RolUsuario.ADMIN.value
         assert "sub" in payload
         assert "exp" in payload
@@ -162,7 +170,7 @@ class TestTokensExpirados:
         assert resp.status_code == 401
 
     def test_token_usuario_eliminado_devuelve_401(self, client: TestClient) -> None:
-        """Token valido cuyo usuario ya no existe en el repo → 401 (auth_deps.py:45-46)."""
+        """Token valido cuyo usuario ya no existe en el repo→401 (auth_deps.py:45-46)"""
         token_huerfano = _jwt_personalizado(sub="id-que-no-existe-en-repo")
         resp = client.get(URL_ME, headers=_bearer(token_huerfano))
         assert resp.status_code == 401
@@ -221,7 +229,12 @@ class TestAuthServiceInterno:
     def test_decodificar_token_sin_rol_lanza_error(self) -> None:
         """JWT sin claim 'rol' lanza TokenInvalidoError (auth_service.py:119)."""
         sin_rol = jwt.encode(
-            {"sub": "x", "exp": int((datetime.now(tz=timezone.utc) + timedelta(hours=1)).timestamp())},
+            {
+                "sub": "x",
+                "exp": int(
+                    (datetime.now(tz=timezone.utc) + timedelta(hours=1)).timestamp()
+                ),
+            },
             settings.jwt_secret_key,
             algorithm=settings.jwt_algorithm,
         )

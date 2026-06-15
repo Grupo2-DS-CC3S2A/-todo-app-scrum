@@ -7,7 +7,6 @@ from src.excepciones.errors import (
     TokenInvalidoError,
     UsuarioDuplicadoError,
     UsuarioNoEncontradoError,
-    VotoDuplicadoError,
     register_exception_handlers,
 )
 
@@ -18,6 +17,5 @@ __all__ = [
     "TokenInvalidoError",
     "UsuarioDuplicadoError",
     "UsuarioNoEncontradoError",
-    "VotoDuplicadoError",
     "register_exception_handlers",
 ]

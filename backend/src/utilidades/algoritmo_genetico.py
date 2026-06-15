@@ -3,7 +3,7 @@
 El algoritmo NO es un sustituto de un PRNG criptografico: solo ilustra,
 para fines academicos, como un proceso evolutivo (poblacion -> seleccion ->
 cruce -> mutacion) puede usarse para producir llaves variables que luego
-acompanan al hash SHA-256 del voto.
+acompanan al hash SHA-256 del par (dni, candidato) y la llave.
 
 Las clases siguen una unica responsabilidad cada una (SRP) y se inyectan
 entre si para facilitar pruebas y reemplazo (DIP).
