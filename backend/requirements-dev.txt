@@ -1,0 +1,14 @@
+# Importar dependencias base (producción)
+-r requirements.txt
+
+# Herramientas de formateo y linting
+black>=24.0.0
+flake8>=7.0.0
+
+# Análisis estático de tipos
+mypy>=1.8.0
+
+# Pruebas y cobertura
+pytest>=8.0.0
+pytest-cov>=4.1.0
+httpx2
