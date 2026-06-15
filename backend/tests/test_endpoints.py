@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-
 _VOTO_VALIDO = {"dni_votante": "12345678", "id_candidato": 1}
 
 
@@ -36,11 +35,15 @@ class TestEndpointVotar:
         assert resp.status_code == 422
 
     def test_dni_con_letras_retorna_422(self, client: TestClient):
-        resp = client.post("/api/votar", json={"dni_votante": "1234567A", "id_candidato": 1})
+        resp = client.post(
+            "/api/votar", json={"dni_votante": "1234567A", "id_candidato": 1}
+        )
         assert resp.status_code == 422
 
     def test_candidato_cero_retorna_422(self, client: TestClient):
-        resp = client.post("/api/votar", json={"dni_votante": "12345678", "id_candidato": 0})
+        resp = client.post(
+            "/api/votar", json={"dni_votante": "12345678", "id_candidato": 0}
+        )
         assert resp.status_code == 422
 
     def test_payload_vacio_retorna_422(self, client: TestClient):
