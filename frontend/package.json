@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "build": "npm run typecheck && vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.0.0",
