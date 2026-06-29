@@ -184,7 +184,7 @@ class TestRepositorioSolicitudEnMemoria:
         )
         repo.guardar(s)
         assert len(repo.listar_por_estado(EstadoSolicitud.PENDIENTE)) == 1
-        assert len(repo.listar_por_estado(EstadoSolicitud.ATENDIDA)) == 0
+        assert len(repo.listar_por_estado(EstadoSolicitud.RESPONDIDA)) == 0
 
     def test_listar_todas(self):
         repo = RepositorioSolicitudEnMemoria()
