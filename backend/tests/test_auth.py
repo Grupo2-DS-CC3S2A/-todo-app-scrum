@@ -1,4 +1,4 @@
-"""Tests de S2-05: Autenticacion JWT y control de sesion.
+"""Tests de Autenticacion JWT y control de sesion.
 
 Cubre los criterios de aceptacion:
 
