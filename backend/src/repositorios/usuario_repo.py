@@ -188,9 +188,7 @@ class RepositorioUsuarioSupabase(UsuarioRepository):
             .execute()
         )
         if not response.data:
-            raise UsuarioNoEncontradoError(
-                f"No existe usuario con id '{usuario_id}'."
-            )
+            raise UsuarioNoEncontradoError(f"No existe usuario con id '{usuario_id}'.")
         return self._fila_a_usuario(cast(dict[str, Any], response.data[0]))
 
     def existe_username(self, username: str) -> bool:
@@ -206,8 +204,7 @@ class RepositorioUsuarioSupabase(UsuarioRepository):
     def listar(self) -> list[Usuario]:
         response = self._client.table("usuarios").select("*").execute()
         return [
-            self._fila_a_usuario(cast(dict[str, Any], row))
-            for row in response.data
+            self._fila_a_usuario(cast(dict[str, Any], row)) for row in response.data
         ]
 
     @staticmethod

@@ -207,8 +207,7 @@ class RepositorioSolicitudSupabase(SolicitudRepository):
             .execute()
         )
         return [
-            self._fila_a_solicitud(cast(dict[str, Any], row))
-            for row in response.data
+            self._fila_a_solicitud(cast(dict[str, Any], row)) for row in response.data
         ]
 
     def listar_por_dependencia(self, dependencia: Dependencia) -> list[Solicitud]:
@@ -219,8 +218,7 @@ class RepositorioSolicitudSupabase(SolicitudRepository):
             .execute()
         )
         return [
-            self._fila_a_solicitud(cast(dict[str, Any], row))
-            for row in response.data
+            self._fila_a_solicitud(cast(dict[str, Any], row)) for row in response.data
         ]
 
     def listar_por_estado(self, estado: EstadoSolicitud) -> list[Solicitud]:
@@ -231,22 +229,18 @@ class RepositorioSolicitudSupabase(SolicitudRepository):
             .execute()
         )
         return [
-            self._fila_a_solicitud(cast(dict[str, Any], row))
-            for row in response.data
+            self._fila_a_solicitud(cast(dict[str, Any], row)) for row in response.data
         ]
 
     def listar_todas(self) -> list[Solicitud]:
         response = self._client.table("solicitudes").select("*").execute()
         return [
-            self._fila_a_solicitud(cast(dict[str, Any], row))
-            for row in response.data
+            self._fila_a_solicitud(cast(dict[str, Any], row)) for row in response.data
         ]
 
     def contar(self) -> int:
         response = (
-            self._client.table("solicitudes")
-            .select("id", count="exact")
-            .execute()
+            self._client.table("solicitudes").select("id", count="exact").execute()
         )
         return response.count or 0
 

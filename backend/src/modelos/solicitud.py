@@ -27,10 +27,10 @@ class EstadoSolicitud(str, Enum):
     """Estados validos del ciclo de vida de una solicitud."""
 
     REGISTRADA = "Registrada"
-    PENDIENTE  = "Pendiente"
+    PENDIENTE = "Pendiente"
     EN_PROCESO = "EnProceso"
     RESPONDIDA = "Respondida"
-    RECHAZADA  = "Rechazada"
+    RECHAZADA = "Rechazada"
 
 
 class Dependencia(str, Enum):
