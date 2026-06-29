@@ -1,24 +1,26 @@
-"""Repositorio del agregado Usuario (S2-05).
+"""Repositorio del agregado Usuario (S2-05 / MDP-54).
 
-Define el puerto ``UsuarioRepository`` y una implementacion en memoria
-thread-safe (Singleton GoF) que sustituye temporalmente a la futura
-implementacion SQLAlchemy (S2-01). Permite las operaciones minimas que
-requiere el flujo de autenticacion JWT: registrar, buscar por username
-o id, y listar.
+Define el puerto ``UsuarioRepository``, el adaptador en memoria
+thread-safe (conservado para tests) y el adaptador Supabase que escribe
+en la tabla ``public.usuarios`` de PostgreSQL.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from functools import lru_cache
+from datetime import datetime
 from threading import Lock
+from typing import Any, cast
 
+from supabase import Client, create_client
+
+from src.config import settings
 from src.excepciones.errors import (
     UsuarioDuplicadoError,
     UsuarioNoEncontradoError,
 )
 from src.logging_config import get_logger
-from src.modelos.usuario import Usuario
+from src.modelos.usuario import RolUsuario, Usuario
 
 logger = get_logger(__name__)
 
@@ -125,7 +127,100 @@ class RepositorioUsuarioEnMemoria(UsuarioRepository):
             return list(self._por_id.values())
 
 
-@lru_cache(maxsize=1)
+class RepositorioUsuarioSupabase(UsuarioRepository):
+    """Adaptador Supabase que persiste en public.usuarios (MDP-54)
+
+    Usa service_role_key para hacer bypass de RLS, por lo que
+    sólo lo consume FastAPI, nunca el cliente web directamente.
+    """
+
+    def __init__(self) -> None:
+        self._client: Client = create_client(
+            settings.supabase_url,
+            settings.supabase_service_key,
+        )
+
+    def guardar(self, usuario: Usuario) -> Usuario:
+        try:
+            self._client.table("usuarios").insert(
+                {
+                    "id": usuario.id,
+                    "username": usuario.username,
+                    "password_hash": usuario.password_hash,
+                    "rol": usuario.rol.value,
+                    "created_at": usuario.created_at.isoformat(),
+                }
+            ).execute()
+        except Exception as exc:
+            if "23505" in str(exc) or "duplicate" in str(exc).lower():
+                raise UsuarioDuplicadoError(
+                    f"El username '{usuario.username}' ya esta registrado."
+                ) from exc
+            raise
+        logger.info(
+            "Usuario persistido en Supabase | id=%s | username=%s | rol=%s",
+            usuario.id,
+            usuario.username,
+            usuario.rol.value,
+        )
+        return usuario
+
+    def obtener_por_username(self, username: str) -> Usuario:
+        response = (
+            self._client.table("usuarios")
+            .select("*")
+            .eq("username", username)
+            .limit(1)
+            .execute()
+        )
+        if not response.data:
+            raise UsuarioNoEncontradoError(
+                f"No existe usuario con username '{username}'."
+            )
+        return self._fila_a_usuario(cast(dict[str, Any], response.data[0]))
+
+    def obtener_por_id(self, usuario_id: str) -> Usuario:
+        response = (
+            self._client.table("usuarios")
+            .select("*")
+            .eq("id", usuario_id)
+            .limit(1)
+            .execute()
+        )
+        if not response.data:
+            raise UsuarioNoEncontradoError(
+                f"No existe usuario con id '{usuario_id}'."
+            )
+        return self._fila_a_usuario(cast(dict[str, Any], response.data[0]))
+
+    def existe_username(self, username: str) -> bool:
+        response = (
+            self._client.table("usuarios")
+            .select("id")
+            .eq("username", username)
+            .limit(1)
+            .execute()
+        )
+        return bool(response.data)
+
+    def listar(self) -> list[Usuario]:
+        response = self._client.table("usuarios").select("*").execute()
+        return [
+            self._fila_a_usuario(cast(dict[str, Any], row))
+            for row in response.data
+        ]
+
+    @staticmethod
+    def _fila_a_usuario(row: dict[str, Any]) -> Usuario:
+        return Usuario(
+            id=str(row["id"]),
+            username=str(row["username"]),
+            password_hash=str(row["password_hash"]),
+            rol=RolUsuario(str(row["rol"])),
+            created_at=datetime.fromisoformat(str(row["created_at"])),
+        )
+
+
 def get_usuario_repository() -> UsuarioRepository:
-    """Provee una instancia del repositorio singleton de usuarios."""
-    return RepositorioUsuarioEnMemoria()
+    """Provee el repositorio Supabase de usuarios."""
+    return RepositorioUsuarioSupabase()
