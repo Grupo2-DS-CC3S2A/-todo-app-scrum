@@ -24,6 +24,7 @@ from src.modelos.solicitud import (
 )
 from src.repositorios.solicitud_repo import (
     RepositorioSolicitudEnMemoria,
+    RepositorioSolicitudSupabase,
     SolicitudRepository,
 )
 
@@ -119,8 +120,8 @@ class SolicitudService:
 
 @lru_cache(maxsize=1)
 def get_solicitud_service() -> SolicitudService:
-    """Provee la instancia singleton del servicio (DI para FastAPI)."""
-    return SolicitudService()
+    """Provee la instancia singleton del servicio con persistencia Supabase."""
+    return SolicitudService(repo=RepositorioSolicitudSupabase())
 
 
 __all__ = [
