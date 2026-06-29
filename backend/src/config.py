@@ -11,7 +11,11 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 BASE_DIR = Path(__file__).resolve().parents[1]
+
+load_dotenv(BASE_DIR / ".env")
 
 
 def _split_csv(value: str) -> list[str]:
@@ -49,6 +53,8 @@ class Settings:
         "VALIDATION_DB_PATH",
         str(BASE_DIR / "data" / "validation.db"),
     )
+    supabase_url: str = os.getenv("SUPABASE_URL", "http://localhost:54321")
+    supabase_service_key: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 
 
 settings: Settings = Settings()
