@@ -68,3 +68,39 @@ on public.solicitudes for all using (
 
 create policy "Los ciudadanos pueden crear solicitudes"
 on public.solicitudes for insert with check (auth.uid() = ciudadano_id);
+
+-- 4. CITIZENS
+-- Migración exacta de validation.db (CA-3). Acceso solo via service_role_key desde FastAPI.
+create table public.citizens (
+    dni        varchar(8)   primary key,
+    digit      integer      not null,
+    issue_date date         not null,
+    firstname  varchar      not null,
+    lastname   varchar      not null
+);
+
+insert into public.citizens (dni, digit, issue_date, firstname, lastname) values
+('40392536', 1, '2024-07-25', 'CESAR',     'LOPEZ ARTEAGA'),
+('81000001', 4, '2022-01-14', 'MATEO',     'SALAZAR PAREDES'),
+('81000002', 7, '2021-03-09', 'LUCIA',     'RAMIREZ TORRES'),
+('81000003', 2, '2020-05-18', 'DIEGO',     'QUISPE HUAMAN'),
+('81000004', 9, '2023-07-22', 'VALERIA',   'CASTRO MENDOZA'),
+('81000005', 5, '2019-11-05', 'SEBASTIAN', 'ROJAS VARGAS'),
+('81000006', 1, '2024-02-12', 'CAMILA',    'FLORES AGUILAR'),
+('81000007', 8, '2022-09-30', 'ANDRES',    'MORALES CHAVEZ'),
+('81000008', 3, '2021-12-17', 'SOFIA',     'NAVARRO LEON'),
+('81000009', 6, '2020-08-26', 'GABRIEL',   'MEDINA SOTO'),
+('81000010', 0, '2023-04-03', 'MARIANA',   'CAMPOS REYES'),
+('81000011', 9, '2022-06-11', 'NICOLAS',   'PONCE DELGADO'),
+('81000012', 2, '2021-10-28', 'ANTONELLA', 'GUTIERREZ SILVA'),
+('81000013', 5, '2024-01-19', 'JOAQUIN',   'ESPINOZA RAMOS'),
+('81000014', 7, '2019-02-07', 'ISABELLA',  'CORDOVA NUNEZ'),
+('81000015', 1, '2020-03-15', 'ALEXANDER', 'VEGA PALACIOS'),
+('81000016', 6, '2023-09-01', 'DANIELA',   'HERRERA FUENTES'),
+('81000017', 3, '2021-01-25', 'EMILIO',    'VALDEZ ARIAS'),
+('81000018', 8, '2022-04-20', 'PAULA',     'IBARRA MEJIA'),
+('81000019', 0, '2020-12-02', 'TOMAS',     'BENAVIDES ORTIZ'),
+('81000020', 4, '2024-05-27', 'RENATA',    'MIRANDA LOPEZ');
+
+-- RLS para citizens: solo accesible via service_role_key (backend FastAPI). Sin políticas = sin acceso cliente.
+alter table public.citizens enable row level security;
