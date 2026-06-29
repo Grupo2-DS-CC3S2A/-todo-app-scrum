@@ -16,18 +16,30 @@ from src.utilidades.algoritmo_genetico import AlgoritmoGenetico, Mutacion
 
 @pytest.fixture(autouse=True, scope="session")
 def usar_repo_en_memoria_para_tests():
-    """Sustituye RepositorioUsuarioSupabase por RepositorioUsuarioEnMemoria en
-    la sesion de tests, sin tocar los archivos individuales test.
+    """Sustituye repositorios Supabase por adaptadores in-memory durante
+    la sesion de tests, no requiere credenciales de Supabase en CI/CD.
 
-    Se parchea el nombre importado en auth_service, no el módulo origen, ya que
-    Python resuelve el nombre en el namespace del importador.
+    - usuario: parcha el nombre importado en auth_service (namespace del importador).
+    - solicitud: registrado en app.dependency_overrides para que todo
+      TestClient(app) (e.g. test_auth.py y test_scrum25.py) use el
+      adaptador in-memory, prescindiendo de supabase_key.
     """
-    _original = _auth_svc_module.get_usuario_repository
+    # Limpia get_auth_service sin borrar usuario_repositorio
+    _original_usuario = _auth_svc_module.get_usuario_repository
     _auth_svc_module.get_usuario_repository = RepositorioUsuarioEnMemoria
     get_auth_service.cache_clear()
+
+    # Limpia get_solicitud_service del servicio solicitud para todo TestClient
+    _mem_solicitud_service = SolicitudService()
+    app.dependency_overrides[get_solicitud_service] = lambda: _mem_solicitud_service
+    get_solicitud_service.cache_clear()
+
     yield
-    _auth_svc_module.get_usuario_repository = _original
+
+    _auth_svc_module.get_usuario_repository = _original_usuario
     get_auth_service.cache_clear()
+    app.dependency_overrides.pop(get_solicitud_service, None)
+    get_solicitud_service.cache_clear()
 
 
 @pytest.fixture
@@ -46,7 +58,13 @@ def solicitud_service() -> SolicitudService:
 
 @pytest.fixture
 def client(solicitud_service: SolicitudService) -> Generator[TestClient, None, None]:
+    _anterior = app.dependency_overrides.get(get_solicitud_service)
     app.dependency_overrides[get_solicitud_service] = lambda: solicitud_service
     with TestClient(app) as c:
         yield c
-    app.dependency_overrides.clear()
+    # Restaura sólo la clave modificada
+    if _anterior is not None:
+        app.dependency_overrides[get_solicitud_service] = _anterior
+    # No destruye otros overrides, sólo hace pop
+    else:
+        app.dependency_overrides.pop(get_solicitud_service, None)
