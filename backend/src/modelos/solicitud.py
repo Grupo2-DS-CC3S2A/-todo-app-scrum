@@ -26,10 +26,11 @@ USUARIO_ID_MAX_LENGTH: int = 64
 class EstadoSolicitud(str, Enum):
     """Estados validos del ciclo de vida de una solicitud."""
 
-    PENDIENTE = "Pendiente"
-    EN_PROCESO = "En Proceso"
-    ATENDIDA = "Atendida"
-    RECHAZADA = "Rechazada"
+    REGISTRADA = "Registrada"
+    PENDIENTE  = "Pendiente"
+    EN_PROCESO = "EnProceso"
+    RESPONDIDA = "Respondida"
+    RECHAZADA  = "Rechazada"
 
 
 class Dependencia(str, Enum):
