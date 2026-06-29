@@ -69,7 +69,18 @@ on public.solicitudes for all using (
 create policy "Los ciudadanos pueden crear solicitudes"
 on public.solicitudes for insert with check (auth.uid() = ciudadano_id);
 
--- 4. CITIZENS
+-- 4. USUARIOS (auth propia con bcrypt+JWT e independiente de Supabase-Auth)
+create table public.usuarios (
+    id            text primary key,
+    username      text not null unique,
+    password_hash text not null,
+    rol           text not null check (rol in ('admin', 'operador', 'ciudadano')),
+    created_at    timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.usuarios enable row level security;
+
+-- 5. CITIZENS
 -- Migración exacta de validation.db (CA-3). Acceso solo via service_role_key desde FastAPI.
 create table public.citizens (
     dni        varchar(8)   primary key,
