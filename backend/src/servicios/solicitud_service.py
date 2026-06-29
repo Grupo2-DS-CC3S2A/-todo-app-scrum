@@ -15,17 +15,16 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta, timezone
 from functools import lru_cache
-from threading import Lock
 
-from src.excepciones.errors import (
-    SolicitudDuplicadaError,
-    SolicitudNoEncontradaError,
-)
 from src.logging_config import get_logger
 from src.modelos.solicitud import (
     DerivacionInput,
     EstadoSolicitud,
     Solicitud,
+)
+from src.repositorios.solicitud_repo import (
+    RepositorioSolicitudEnMemoria,
+    SolicitudRepository,
 )
 
 logger = get_logger(__name__)
@@ -70,34 +69,17 @@ def _calcular_fecha_maxima(ahora: datetime) -> datetime:
 class SolicitudService:
     """Coordina el ciclo de vida de las solicitudes (HU04).
 
-    Mantiene un repositorio en memoria thread-safe; en produccion se
-    sustituye por una base de datos persistente sin cambiar el contrato
-    publico del servicio (DIP).
+    Delega la persistencia a un ``SolicitudRepository`` inyectado; por
+    defecto usa el adaptador en memoria (apto para tests y desarrollo).
+    En produccion se inyecta ``RepositorioSolicitudSupabase`` sin cambiar
+    esta clase (DIP).
     """
 
-    def __init__(self) -> None:
-        self._solicitudes: dict[str, Solicitud] = {}
-        self._lock: Lock = Lock()
+    def __init__(self, repo: SolicitudRepository | None = None) -> None:
+        self._repo: SolicitudRepository = repo if repo is not None else RepositorioSolicitudEnMemoria()
 
     def derivar(self, payload: DerivacionInput) -> Solicitud:
-        """Deriva una solicitud a la dependencia indicada (HU04).
-
-        Aplica los criterios de aceptacion:
-        - asigna la dependencia destino,
-        - registra ``fecha_ingreso`` con el instante actual UTC,
-        - calcula ``fecha_maxima_respuesta`` sumando 30 dias habiles,
-        - fija el estado en ``Pendiente``.
-
-        Args:
-            payload: Datos de derivacion ya validados por Pydantic.
-
-        Returns:
-            La entidad ``Solicitud`` recien creada y persistida.
-
-        Raises:
-            SolicitudDuplicadaError: Si por colision el id generado ya
-                existiese (extremadamente improbable con UUID4).
-        """
+        """Deriva una solicitud a la dependencia indicada (HU04)."""
         ahora: datetime = datetime.now(tz=timezone.utc)
         fecha_maxima: datetime = _calcular_fecha_maxima(ahora)
 
@@ -110,12 +92,7 @@ class SolicitudService:
             estado=EstadoSolicitud.PENDIENTE,
         )  # type: ignore
 
-        with self._lock:
-            if solicitud.id in self._solicitudes:
-                raise SolicitudDuplicadaError(
-                    f"Ya existe una solicitud con id={solicitud.id}."
-                )
-            self._solicitudes[solicitud.id] = solicitud
+        self._repo.guardar(solicitud)
 
         logger.info(
             "Solicitud derivada | id=%s | dependencia=%s | "
@@ -129,18 +106,11 @@ class SolicitudService:
 
     def obtener(self, solicitud_id: str) -> Solicitud:
         """Recupera una solicitud por id."""
-        with self._lock:
-            solicitud: Solicitud | None = self._solicitudes.get(solicitud_id)
-        if solicitud is None:
-            raise SolicitudNoEncontradaError(
-                f"No existe solicitud con id={solicitud_id}."
-            )
-        return solicitud
+        return self._repo.obtener_por_id(solicitud_id)
 
     def listar(self) -> list[Solicitud]:
-        """Devuelve copia inmutable del repositorio de solicitudes."""
-        with self._lock:
-            return list(self._solicitudes.values())
+        """Devuelve todas las solicitudes almacenadas."""
+        return self._repo.listar_todas()
 
 
 @lru_cache(maxsize=1)
