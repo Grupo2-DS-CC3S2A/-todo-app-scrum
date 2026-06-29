@@ -1,6 +1,7 @@
 create extension if not exists "uuid-ossp";
 
-create type estado_solicitud as enum ('Registrada', 'Pendiente', 'EnProceso', 'Respondida', 'Rechazada');
+create type tipo_persona      as enum ('NATURAL', 'JURIDICA');
+create type estado_solicitud  as enum ('Registrada', 'Pendiente', 'EnProceso', 'Respondida', 'Rechazada');
 
 -- 1. DEPENDENCIAS
 create table public.dependencias (
@@ -30,18 +31,22 @@ create table public.perfiles (
 );
 
 -- 3. SOLICITUDES
+-- Nota: ciudadano_id es text porque MDP usa auth JWT, no Supabase Auth.
+-- dependencia_asignada es text porque se usa enum Dependencia directamente.
+-- asunto es nullable porque el adaptador puede omitirlo.
 create table public.solicitudes (
-    id uuid default gen_random_uuid() primary key,
-    ciudadano_id uuid references public.perfiles(id) on delete restrict not null,
-    asunto text not null,
-    detalle_solicitud text not null,
-    estado estado_solicitud not null default 'Registrada',
-    observaciones text default '',
-    fecha_registro timestamp with time zone default timezone('utc'::text, now()) not null,
-    fecha_ingreso timestamp with time zone,
+    id                    uuid          default gen_random_uuid() primary key,
+    ciudadano_id          text          not null,
+    asunto                text,
+    detalle_solicitud     text          not null,
+    tipo_persona_origen   tipo_persona  not null default 'NATURAL',
+    estado                estado_solicitud not null default 'Registrada',
+    observaciones         text          default '',
+    fecha_registro        timestamp with time zone default timezone('utc'::text, now()) not null,
+    fecha_ingreso         timestamp with time zone,
     fecha_maxima_respuesta timestamp with time zone,
-    dependencia_asignada_id bigint references public.dependencias(id),
-    actualizado_en timestamp with time zone default timezone('utc'::text, now()) not null
+    dependencia_asignada  text          not null,
+    actualizado_en        timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
 -- RLS
@@ -57,9 +62,9 @@ on public.perfiles for select using (
     (auth.jwt() -> 'app_metadata' ->> 'rol') in ('admin', 'operador')
 );
 
--- Políticas para solicitudes
+-- Políticas para solicitudes (cast de auth.uid() para comparar con ciudadano_id)
 create policy "Los ciudadanos ven sus propios trámites"
-on public.solicitudes for select using (auth.uid() = ciudadano_id);
+on public.solicitudes for select using (auth.uid()::text = ciudadano_id);
 
 create policy "Los administradores y operadores ven todo"
 on public.solicitudes for all using (
@@ -67,7 +72,7 @@ on public.solicitudes for all using (
 );
 
 create policy "Los ciudadanos pueden crear solicitudes"
-on public.solicitudes for insert with check (auth.uid() = ciudadano_id);
+on public.solicitudes for insert with check (auth.uid()::text = ciudadano_id);
 
 -- 4. USUARIOS (auth propia con bcrypt+JWT e independiente de Supabase-Auth)
 create table public.usuarios (
