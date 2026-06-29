@@ -102,5 +102,10 @@ insert into public.citizens (dni, digit, issue_date, firstname, lastname) values
 ('81000019', 0, '2020-12-02', 'TOMAS',     'BENAVIDES ORTIZ'),
 ('81000020', 4, '2024-05-27', 'RENATA',    'MIRANDA LOPEZ');
 
--- RLS para citizens: solo accesible via service_role_key (backend FastAPI). Sin políticas = sin acceso cliente.
+-- RLS para citizens: solo accesible via service_role_key (backend FastAPI). Sin políticas -> sin acceso cliente.
 alter table public.citizens enable row level security;
+
+-- Aunque se otorguen acceso a todos, RLS sigue controlando qué filas son visibles.
+grant usage on schema public to anon, authenticated, service_role;
+grant all on all tables in schema public to anon, authenticated, service_role;
+grant all on all sequences in schema public to anon, authenticated, service_role;
