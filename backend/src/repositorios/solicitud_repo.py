@@ -13,6 +13,7 @@ from functools import lru_cache
 from threading import Lock
 from typing import Any, cast
 
+from postgrest import CountMethod
 from supabase import Client, create_client
 
 from src.config import settings
@@ -240,7 +241,9 @@ class RepositorioSolicitudSupabase(SolicitudRepository):
 
     def contar(self) -> int:
         response = (
-            self._client.table("solicitudes").select("id", count="exact").execute()
+            self._client.table("solicitudes")
+            .select("id", count=CountMethod.exact)
+            .execute()
         )
         return response.count or 0
 
