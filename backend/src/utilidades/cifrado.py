@@ -1,4 +1,4 @@
-"""Funciones de cifrado / hashing para el voto.
+"""Funciones de cifrado / hashing para el par (dni, candidato) y la llave.
 
 Centraliza la construccion del payload y el calculo del digest SHA-256 para
 garantizar que el formato sea consistente en todos los puntos del sistema.
@@ -13,10 +13,10 @@ _SEPARADOR: Final[str] = "|"
 
 
 def aplicar_hash_sha256(dni: str, candidato: int, llave: str) -> str:
-    """Calcula el digest SHA-256 del voto.
+    """Calcula el digest SHA-256 del par (dni, candidato) y la llave.
 
     Args:
-        dni: DNI del votante (8 digitos validados aguas arriba).
+        dni: DNI del usuario (8 digitos validados aguas arriba).
         candidato: Identificador del candidato elegido.
         llave: Llave evolutiva proveniente del algoritmo genetico.
 

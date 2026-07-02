@@ -21,14 +21,18 @@ from src.servicios.solicitud_service import (
 )
 
 
-def _payload(**kwargs) -> DerivacionInput:
-    defaults = {
-        "usuario_id": "usr-001",
-        "detalle_solicitud": "Solicitud de prueba con suficiente detalle",
-        "dependencia_asignada": Dependencia.MESA_DE_PARTES,
-    }
-    defaults.update(kwargs)
-    return DerivacionInput(**defaults)
+def _payload(
+    usuario_id: str = "usr-001",
+    detalle_solicitud: str = "Solicitud de prueba con suficiente detalle",
+    dependencia_asignada: Dependencia = Dependencia.MESA_DE_PARTES,
+    observaciones: str = "",
+) -> DerivacionInput:
+    return DerivacionInput(
+        usuario_id=usuario_id,
+        detalle_solicitud=detalle_solicitud,
+        dependencia_asignada=dependencia_asignada,
+        observaciones=observaciones,
+    )
 
 
 class TestSumarDiasHabiles:
@@ -103,11 +107,13 @@ class TestRepositorioSolicitudEnMemoria:
     def _solicitud_valida(self) -> Solicitud:
         ahora = datetime.now(tz=timezone.utc)
         return Solicitud(
+            id="u1",
             usuario_id="usr-test",
             detalle_solicitud="Detalle válido suficiente para el test",
             dependencia_asignada=Dependencia.LOGISTICA,
             fecha_ingreso=ahora,
             fecha_maxima_respuesta=ahora + timedelta(days=45),
+            estado=EstadoSolicitud.RECHAZADA,
         )
 
     def test_guardar_y_obtener(self):
@@ -178,7 +184,7 @@ class TestRepositorioSolicitudEnMemoria:
         )
         repo.guardar(s)
         assert len(repo.listar_por_estado(EstadoSolicitud.PENDIENTE)) == 1
-        assert len(repo.listar_por_estado(EstadoSolicitud.ATENDIDA)) == 0
+        assert len(repo.listar_por_estado(EstadoSolicitud.RESPONDIDA)) == 0
 
     def test_listar_todas(self):
         repo = RepositorioSolicitudEnMemoria()

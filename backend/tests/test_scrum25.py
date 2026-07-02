@@ -170,10 +170,7 @@ class TestTokensExpirados:
         assert resp.status_code == 401
 
     def test_token_usuario_eliminado_devuelve_401(self, client: TestClient) -> None:
-        """Token valido cuyo usuario ya no existe en el repo.
-
-        Debe devolver 401 (auth_deps.py:45-46).
-        """
+        """Token valido cuyo usuario ya no existe en el repo→401 (auth_deps.py:45-46)"""
         token_huerfano = _jwt_personalizado(sub="id-que-no-existe-en-repo")
         resp = client.get(URL_ME, headers=_bearer(token_huerfano))
         assert resp.status_code == 401

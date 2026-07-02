@@ -18,9 +18,8 @@
     "noImplicitOverride": true,
     "exactOptionalPropertyTypes": true,
     "skipLibCheck": true,
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src"]

@@ -1,4 +1,4 @@
-"""Mesa de Partes - Voto Electronico Seguro: paquete principal."""
+"""Mesa de Partes: paquete principal."""
 
 from src.main import create_app
 
