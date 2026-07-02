@@ -2,7 +2,7 @@ name: Backend CI
 
 on:
   push:
-    branches: ['main']
+    branches: ['main', 'developer']
   pull_request:
     branches: ['main']
 
@@ -43,3 +43,22 @@ jobs:
 
       - name: Ejecutar pruebas y cobertura (Falla si < 85%)
         run: pytest --cov=src --cov-fail-under=85
+
+  docker-build:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/developer' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build de la imagen backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
