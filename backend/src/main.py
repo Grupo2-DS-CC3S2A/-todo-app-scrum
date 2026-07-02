@@ -11,17 +11,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.config import settings
 from src.excepciones.errors import register_exception_handlers
 from src.logging_config import configure_logging, get_logger
-<<<<<<< HEAD
-from src.rutas import (
-    admin_solicitudes_router,
-    auth_router,
-    votos_router,
-=======
 from src.repositorios.solicitud_repo import get_solicitud_repository
 from src.rutas import (
     admin_solicitudes_router,
     auth_router,
->>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
     validacion_router,
 )
 
@@ -45,10 +38,6 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
     app.include_router(auth_router)
     app.include_router(validacion_router)
-<<<<<<< HEAD
-    app.include_router(votos_router)
-=======
->>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
     app.include_router(admin_solicitudes_router)
 
     @app.get("/health", tags=["meta"], summary="Health check")
