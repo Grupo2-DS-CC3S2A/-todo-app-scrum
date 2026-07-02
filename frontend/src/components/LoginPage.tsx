@@ -83,12 +83,17 @@ export function LoginPage(): ReactElement {
               Mesa de Partes
             </Heading>
             <Heading size="md" color="blue.200" fontWeight="medium">
+<<<<<<< HEAD
               Electronica RENIEC
             </Heading>
             <Text color="blue.100" fontSize="sm" maxW="260px" lineHeight="tall">
               Sistema de voto electronico seguro con cifrado SHA-256 y llaves
               evolutivas para garantizar anonimato e inmutabilidad.
             </Text>
+=======
+              Electrónica
+            </Heading>
+>>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
           </Stack>
           <Box
             mt={4}
@@ -149,7 +154,11 @@ export function LoginPage(): ReactElement {
 
                 <Box>
                   <Text mb={2} color="gray.700" fontWeight="medium" fontSize="sm">
+<<<<<<< HEAD
                     Contrasena
+=======
+                    Contraseña
+>>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
                   </Text>
                   <Input
                     type="password"

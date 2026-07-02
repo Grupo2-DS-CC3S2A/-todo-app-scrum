@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { useEffect, useState, type FormEvent, type ReactElement } from "react";
 
 import { validarCiudadano } from "@/api/validationApi";
@@ -8,6 +9,15 @@ import { ApiError } from "@/types/voting";
 import type { CiudadanoValidado } from "@/types/ciudadano";
 
 type Screen = "status" | "validation" | "dashboard" | "registration" | "inbox" | "vote";
+=======
+import { useState, type FormEvent, type ReactElement } from "react";
+
+import { validarCiudadano } from "@/api/validationApi";
+import { ApiError } from "@/types/voting";
+import type { CiudadanoValidado } from "@/types/ciudadano";
+
+type Screen = "status" | "validation" | "dashboard" | "registration" | "inbox";
+>>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
 type MessageKind = "success" | "warning" | "error" | "info";
 
 interface AppMessage {
@@ -49,6 +59,7 @@ export default function App(): ReactElement {
   const [message, setMessage] = useState<AppMessage | null>(null);
   const [termsOpen, setTermsOpen] = useState<boolean>(false);
   const [registrationStep, setRegistrationStep] = useState<1 | 2>(1);
+<<<<<<< HEAD
 
   const { comprobante, cargando, error, votar, reset } = useVoting();
 
@@ -75,6 +86,19 @@ export default function App(): ReactElement {
       setMessage({ kind: "success", text: "Voto registrado correctamente." });
     }
   }, [comprobante]);
+=======
+
+  const showScreen = (nextScreen: Screen): void => {
+    if (requiereSesion(nextScreen) && !user) {
+      setMessage({ kind: "warning", text: "Primero valida tus datos para ingresar al sistema." });
+      setScreen("validation");
+      return;
+    }
+    if (nextScreen === "registration") setRegistrationStep(1);
+    setMessage(null);
+    setScreen(nextScreen);
+  };
+>>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
 
   return (
     <div className="app-shell">
@@ -98,16 +122,23 @@ export default function App(): ReactElement {
           <button className={screen === "inbox" ? "active" : ""} onClick={() => showScreen("inbox")}>
             Mis Documentos
           </button>
+<<<<<<< HEAD
           <button className={screen === "vote" ? "active vote-link" : "vote-link"} onClick={() => showScreen("vote")}>
             Voto Electronico
           </button>
+=======
+>>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
         </div>
         <div className="user-info">
           {user ? `DNI: ${user.dni} | ${fullName(user)}` : "DNI: 066XXXXX | USUARIO NO VALIDADO"}
         </div>
       </nav>
 
+<<<<<<< HEAD
       <main className={screen === "vote" ? "container container-wide" : "container"}>
+=======
+      <main className={"container"}>
+>>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
         {message && <div className={`app-message ${message.kind}`}>{message.text}</div>}
         {screen === "status" && <StatusScreen onContinue={() => showScreen("validation")} />}
         {screen === "validation" && (
@@ -136,6 +167,7 @@ export default function App(): ReactElement {
             }}
           />
         )}
+<<<<<<< HEAD
         {screen === "vote" && user && (
           <VoteScreen
             user={user}
@@ -145,6 +177,8 @@ export default function App(): ReactElement {
             onValidationError={(text) => setMessage({ kind: "warning", text })}
           />
         )}
+=======
+>>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
       </main>
 
       <footer className="main-footer">
@@ -342,7 +376,11 @@ function DashboardScreen({
         Estimado <strong>{userName}</strong>, por este canal virtual podra presentar documentos de forma rapida sin necesidad de acercarse a la Mesa de Partes del RENIEC.
       </p>
 
+<<<<<<< HEAD
       <div className="dashboard-grid dashboard-grid-3">
+=======
+      <div className="dashboard-grid dashboard-grid-2">
+>>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
         <button className="card" onClick={() => onNavigate("registration")}>
           <div className="card-icon">📄</div>
           <h3>Registro de Documento</h3>
@@ -353,11 +391,14 @@ function DashboardScreen({
           <h3>Mis Documentos</h3>
           <p>Consulte sus tramites realizados</p>
         </button>
+<<<<<<< HEAD
         <button className="card card-vote" onClick={() => onNavigate("vote")}>
           <div className="card-icon">🗳️</div>
           <h3>Voto Electronico</h3>
           <p>Emita su voto de forma segura</p>
         </button>
+=======
+>>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
       </div>
     </section>
   );
@@ -517,6 +558,7 @@ function RegistrationScreen({
   );
 }
 
+<<<<<<< HEAD
 function VoteScreen({
   user,
   comprobante,
@@ -562,6 +604,8 @@ function VoteScreen({
   );
 }
 
+=======
+>>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
 function TermsModal({
   open,
   onAccept,

@@ -96,11 +96,14 @@ textarea {
   background-color: var(--secondary-color);
 }
 
+<<<<<<< HEAD
 .nav-links .vote-link {
   font-weight: 800;
   letter-spacing: 0.2px;
 }
 
+=======
+>>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
 .user-info {
   font-size: 0.8rem;
   white-space: nowrap;
@@ -122,6 +125,7 @@ textarea {
   overflow: hidden;
 }
 
+<<<<<<< HEAD
 .screen-block h2,
 .vote-panel-right h2 {
   color: var(--primary-color);
@@ -130,6 +134,8 @@ textarea {
   margin: 0 0 25px;
 }
 
+=======
+>>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
 .screen-description {
   color: var(--text-light);
   margin-bottom: 20px;
@@ -244,10 +250,13 @@ input[readonly] {
   margin-bottom: 15px;
 }
 
+<<<<<<< HEAD
 .card-vote .card-icon {
   color: var(--accent-color);
 }
 
+=======
+>>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
 .progress-bar {
   display: flex;
   justify-content: center;
@@ -423,6 +432,7 @@ th {
   margin: 8px 0 0;
 }
 
+<<<<<<< HEAD
 .vote-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -484,6 +494,8 @@ th {
   justify-content: center;
 }
 
+=======
+>>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
 .validated-user-box {
   padding: 12px;
   margin-bottom: 16px;
@@ -492,6 +504,7 @@ th {
   font-size: 0.9rem;
 }
 
+<<<<<<< HEAD
 .voting-form {
   background: #fafafa;
   border: 1px solid var(--border-color);
@@ -512,6 +525,8 @@ th {
   margin: 0 0 10px;
 }
 
+=======
+>>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
 .receipt-code {
   margin-top: 12px;
   padding: 14px;
@@ -619,6 +634,7 @@ th {
     padding: 24px;
   }
 
+<<<<<<< HEAD
   .dashboard-grid,
   .dashboard-grid-3,
   .grid-2-cols,
@@ -631,6 +647,8 @@ th {
     min-height: 320px;
   }
 
+=======
+>>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
   .user-info {
     white-space: normal;
   }
