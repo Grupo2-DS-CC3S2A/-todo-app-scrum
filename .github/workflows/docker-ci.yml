@@ -1,0 +1,28 @@
+name: Docker Build CI
+
+# Definir los Triggers
+on:
+  push:
+    branches:
+      - developer
+  pull_request:
+    branches:
+      - developer
+
+jobs:
+  build-docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Clonar el código del repositorio en el servidor de GitHub
+      - name: Descargar código del repositorio
+        uses: actions/checkout@v4
+
+      # Configurar el entorno de Docker Buildx
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Construir la imagen de Docker
+      - name: Ejecutar Docker Build
+        run: |
+          docker build -t mi-fastapi:latest ./backend
