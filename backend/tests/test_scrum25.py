@@ -1,21 +1,14 @@
-"""SCRUM-25 [QA] — Pruebas unitarias de login, tokens expirados y denegacion de accesos.
-
-Mapeados directamente a los escenarios de PASOS.md:
-
-  PASO 4  → credenciales invalidas devuelven error legible
-  PASO 5  → login exitoso emite JWT con claims correctos
-  PASO 8  → endpoints admin exigen JWT valido con rol admin
-  PASO 10 → token expirado devuelve 401 / 403 segun el endpoint
-
-Ademas cubre las ramas no ejercidas por test_auth.py para mantener
-la cobertura de los modulos de autenticacion por encima del 85%:
-
-  - Token sin claim ``sub``          → auth_deps.py:42
-  - Token con usuario eliminado      → auth_deps.py:45-46
-  - Token sin claim ``rol``          → auth_service.py:119
-  - Hash malformado en verificacion  → auth_service.py:82-83
-  - ``obtener_por_id`` inexistente   → usuario_repo.py:116
-  - ``listar`` usuarios              → usuario_repo.py:124-125
+"""Pruebas unitarias de login, tokens expirados y denegacion de accesos:
+  PASO 4  -> credenciales invalidas devuelven error legible
+  PASO 5  -> login exitoso emite JWT con claims correctos
+  PASO 8  -> endpoints admin exigen JWT valido con rol admin
+  PASO 10 -> token expirado devuelve 401 / 403 segun el endpoint
+  - Token sin claim ``sub``          
+  - Token con usuario eliminado      
+  - Token sin claim ``rol``          
+  - Hash malformado en verificacion  
+  - ``obtener_por_id`` inexistente 
+  - ``listar`` usuarios 
 """
 
 from __future__ import annotations
@@ -164,13 +157,13 @@ class TestTokensExpirados:
         assert resp.status_code == 403
 
     def test_token_sin_claim_sub_devuelve_401(self, client: TestClient) -> None:
-        """Token valido pero sin claim 'sub' → 401 (auth_deps.py:42)."""
+        """Token valido pero sin claim 'sub' -> 401."""
         sin_sub = _jwt_personalizado(sub="")
         resp = client.get(URL_ME, headers=_bearer(sin_sub))
         assert resp.status_code == 401
 
     def test_token_usuario_eliminado_devuelve_401(self, client: TestClient) -> None:
-        """Token valido cuyo usuario ya no existe en el repo→401 (auth_deps.py:45-46)"""
+        """Token valido cuyo usuario ya no existe en el repo->401"""
         token_huerfano = _jwt_personalizado(sub="id-que-no-existe-en-repo")
         resp = client.get(URL_ME, headers=_bearer(token_huerfano))
         assert resp.status_code == 401

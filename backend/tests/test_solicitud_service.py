@@ -13,6 +13,7 @@ from src.modelos.solicitud import (
     EstadoSolicitud,
     Solicitud,
 )
+from src.modelos.tipo_persona import TipoPersona
 from src.repositorios.solicitud_repo import RepositorioSolicitudEnMemoria
 from src.servicios.solicitud_service import (
     DIAS_HABILES_RESPUESTA,
@@ -25,12 +26,14 @@ def _payload(
     usuario_id: str = "usr-001",
     detalle_solicitud: str = "Solicitud de prueba con suficiente detalle",
     dependencia_asignada: Dependencia = Dependencia.MESA_DE_PARTES,
+    tipo_persona: TipoPersona = TipoPersona.NATURAL,
     observaciones: str = "",
 ) -> DerivacionInput:
     return DerivacionInput(
         usuario_id=usuario_id,
         detalle_solicitud=detalle_solicitud,
         dependencia_asignada=dependencia_asignada,
+        tipo_persona=tipo_persona,
         observaciones=observaciones,
     )
 
@@ -71,6 +74,18 @@ class TestSolicitudService:
             _payload(dependencia_asignada=Dependencia.ASESORIA_LEGAL)
         )
         assert s.dependencia_asignada == Dependencia.ASESORIA_LEGAL
+
+    def test_derivar_propaga_tipo_persona_natural(
+        self, solicitud_service: SolicitudService
+    ):
+        s = solicitud_service.derivar(_payload(tipo_persona=TipoPersona.NATURAL))
+        assert s.tipo_persona == TipoPersona.NATURAL
+
+    def test_derivar_propaga_tipo_persona_juridica(
+        self, solicitud_service: SolicitudService
+    ):
+        s = solicitud_service.derivar(_payload(tipo_persona=TipoPersona.JURIDICA))
+        assert s.tipo_persona == TipoPersona.JURIDICA
 
     def test_derivar_calcula_fecha_maxima_30_dias_habiles(
         self, solicitud_service: SolicitudService

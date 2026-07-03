@@ -1,4 +1,4 @@
-"""Tests de integración para los endpoints de administración (HU04)."""
+"""Tests de integración para los endpoints de administración."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ _PAYLOAD_VALIDO = {
     "usuario_id": "usr-001",
     "detalle_solicitud": "Solicitud de derivación de prueba con suficiente detalle",
     "dependencia_asignada": "MesaDePartes",
+    "tipo_persona": "NATURAL",
 }
 _TOKEN = "token-de-prueba"
 
@@ -45,12 +46,37 @@ class TestEndpointDerivar:
         assert "id" in datos
         assert datos["estado"] == "Pendiente"
         assert datos["dependencia_asignada"] == "MesaDePartes"
+        assert datos["tipo_persona"] == "NATURAL"
+
+    def test_derivacion_persona_juridica_retorna_tipo_persona(
+        self, client: TestClient, monkeypatch
+    ):
+        monkeypatch.setenv("ADMIN_TOKEN", _TOKEN)
+        payload = {**_PAYLOAD_VALIDO, "tipo_persona": "JURIDICA"}
+        datos = client.post(
+            "/api/admin/solicitudes/derivar",
+            json=payload,
+            headers={"X-Admin-Token": _TOKEN},
+        ).json()
+        assert datos["tipo_persona"] == "JURIDICA"
 
     def test_payload_invalido_retorna_422(self, client: TestClient, monkeypatch):
         monkeypatch.setenv("ADMIN_TOKEN", _TOKEN)
         resp = client.post(
             "/api/admin/solicitudes/derivar",
             json={"usuario_id": "x"},
+            headers={"X-Admin-Token": _TOKEN},
+        )
+        assert resp.status_code == 422
+
+    def test_payload_sin_tipo_persona_retorna_422(
+        self, client: TestClient, monkeypatch
+    ):
+        monkeypatch.setenv("ADMIN_TOKEN", _TOKEN)
+        payload = {k: v for k, v in _PAYLOAD_VALIDO.items() if k != "tipo_persona"}
+        resp = client.post(
+            "/api/admin/solicitudes/derivar",
+            json=payload,
             headers={"X-Admin-Token": _TOKEN},
         )
         assert resp.status_code == 422
