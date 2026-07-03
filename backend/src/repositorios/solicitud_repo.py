@@ -264,5 +264,5 @@ class RepositorioSolicitudSupabase(SolicitudRepository):
 
 @lru_cache(maxsize=1)
 def get_solicitud_repository() -> SolicitudRepository:
-    """Provee una instancia singleton del repositorio (DI para FastAPI)."""
-    return RepositorioSolicitudEnMemoria()
+    """Provee la instancia singleton del repositorio con persistencia Supabase."""
+    return RepositorioSolicitudSupabase()

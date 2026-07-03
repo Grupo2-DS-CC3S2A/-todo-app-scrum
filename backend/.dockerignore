@@ -1,0 +1,22 @@
+# Entornos virtuales
+
+venv/
+env/
+.venv/
+
+# Caché de Python y herramientas
+
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+.mypy_cache/
+.coverage
+
+# Archivos de entorno local
+
+.env
+
+# Tests e historial
+
+tests/
+.git/
