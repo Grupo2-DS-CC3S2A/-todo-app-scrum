@@ -6,7 +6,11 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
-from src.excepciones.errors import SolicitudDuplicadaError, SolicitudNoEncontradaError
+from src.excepciones.errors import (
+    DocumentoInvalidoError,
+    SolicitudDuplicadaError,
+    SolicitudNoEncontradaError,
+)
 from src.modelos.solicitud import (
     Dependencia,
     DerivacionInput,
@@ -27,13 +31,19 @@ def _payload(
     detalle_solicitud: str = "Solicitud de prueba con suficiente detalle",
     dependencia_asignada: Dependencia = Dependencia.MESA_DE_PARTES,
     tipo_persona: TipoPersona = TipoPersona.NATURAL,
+    numero_documento: str | None = None,
     observaciones: str = "",
 ) -> DerivacionInput:
+    if numero_documento is None:
+        numero_documento = (
+            "40392536" if tipo_persona == TipoPersona.NATURAL else "20123456789"
+        )
     return DerivacionInput(
         usuario_id=usuario_id,
         detalle_solicitud=detalle_solicitud,
         dependencia_asignada=dependencia_asignada,
         tipo_persona=tipo_persona,
+        numero_documento=numero_documento,
         observaciones=observaciones,
     )
 
@@ -86,6 +96,32 @@ class TestSolicitudService:
     ):
         s = solicitud_service.derivar(_payload(tipo_persona=TipoPersona.JURIDICA))
         assert s.tipo_persona == TipoPersona.JURIDICA
+
+    def test_derivar_persona_natural_con_dni_invalido_no_persiste(
+        self, solicitud_service: SolicitudService
+    ):
+        """MDP-15 CA: sin dni valido, la solicitud se rechaza antes de guardarse."""
+        with pytest.raises(DocumentoInvalidoError):
+            solicitud_service.derivar(
+                _payload(
+                    tipo_persona=TipoPersona.NATURAL,
+                    numero_documento="123",
+                )
+            )
+        assert solicitud_service.listar() == []
+
+    def test_derivar_persona_juridica_con_ruc_invalido_no_persiste(
+        self, solicitud_service: SolicitudService
+    ):
+        """MDP-15 CA: sin ruc valido, la solicitud se rechaza antes de guardarse."""
+        with pytest.raises(DocumentoInvalidoError):
+            solicitud_service.derivar(
+                _payload(
+                    tipo_persona=TipoPersona.JURIDICA,
+                    numero_documento="12345",
+                )
+            )
+        assert solicitud_service.listar() == []
 
     def test_derivar_calcula_fecha_maxima_30_dias_habiles(
         self, solicitud_service: SolicitudService
