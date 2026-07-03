@@ -1,28 +1,41 @@
-name: Docker Build CI
+name: Deploy Backend to Cloud Run
 
-# Definir los Triggers
 on:
   push:
     branches:
-      - developer
-  pull_request:
-    branches:
+      - feature/MDP-41-despliegue-de-backend
       - developer
 
+env:
+  PROJECT_ID: 'mesa-de-partes-501300 ' # REEMPLAZA ESTO
+  REGION: 'us-central1'
+  SERVICE_NAME: 'todo-app-backend'
+
 jobs:
-  build-docker:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # Clonar el código del repositorio en el servidor de GitHub
-      - name: Descargar código del repositorio
+      - name: Descargar código
         uses: actions/checkout@v4
 
-      # Configurar el entorno de Docker Buildx
-      - name: Configurar Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      # Autenticarse con Google Cloud usando el secreto
+      - name: Autenticación en Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
-      # Construir la imagen de Docker
-      - name: Ejecutar Docker Build
+      # Configurar el SDK de Google Cloud
+      - name: Configurar Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # Enviar el código directamente a Cloud Build y Cloud Run
+      # gcloud lee tu Dockerfile multi-stage, construye la imagen optimizada en la nube y la despliega
+      - name: Construir y Desplegar en Cloud Run
         run: |
-          docker build -t mi-fastapi:latest ./backend
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --source ./backend \
+            --region ${{ env.REGION }} \
+            --port 8000 \
+            --allow-unauthenticated \
+            --project ${{ env.PROJECT_ID }}

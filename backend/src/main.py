@@ -40,19 +40,24 @@ def create_app() -> FastAPI:
     app.include_router(validacion_router)
     app.include_router(admin_solicitudes_router)
 
-    @app.get("/health", tags=["meta"], summary="Health check con base de datos")
-    async def healthcheck(repo=Depends(get_solicitud_repository)) -> dict:
-        """Endpoint de liveness y readiness para orquestadores."""
-        try:
-            await repo.ping_database()
+    @app.get("/health", tags=["meta"], summary="Health check")
+    async def healthcheck() -> dict[str, str]:
+        """Verifica liveness y que la conexion a Supabase responda.
 
-            return {"status": "ok", "database": "connected"}
-        except Exception as e:
-            logger.error(f"Error de conexión a la base de datos: {e}")
+        La construccion del cliente Supabase (credenciales invalidas,
+        host inalcanzable) tambien debe reportarse como 503, por lo que
+        se resuelve dentro del ``try`` en vez de inyectarse via
+        ``Depends`` (que fallaria antes de llegar aqui).
+        """
+        try:
+            get_solicitud_repository().contar()
+        except Exception as exc:
+            logger.error("Health check fallo: Supabase no responde. %s", exc)
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail={"status": "error", "database": "disconnected"},
-            )
+                detail="No se pudo conectar a Supabase.",
+            ) from exc
+        return {"status": "ok"}
 
     logger.info("Aplicacion '%s' inicializada.", settings.app_name)
     return app
