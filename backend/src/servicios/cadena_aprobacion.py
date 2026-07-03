@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Optional, Any
 
 # Importamos el modelo de la solicitud
-from src.modelos.solicitud import Solicitud
+from src.modelos.solicitud import Solicitud, EstadoSolicitud
 
 
 class ManejadorAprobacion(ABC):
@@ -60,14 +60,17 @@ class AprobacionLegalHandler(ManejadorAprobacion):
     cumpla con el marco legal o los requisitos mínimos de forma.
     """
 
-    def manejar(self, solicitud: Solicitud) -> Any:
-        if not solicitud.detalle_solicitud or len(solicitud.detalle_solicitud) < 15:
-            raise ValueError(
-                "Rechazado: La solicitud no cumple con la longitud legal mínima para ser procesada."
-            )
 
-        # Si pasa la revisión legal, continúa la cadena
-        return super().manejar(solicitud)
+def manejar(self, solicitud: Solicitud) -> Any:
+    if not solicitud.detalle_solicitud or len(solicitud.detalle_solicitud) < 15:
+
+        solicitud.estado = EstadoSolicitud.RECHAZADA_LEGAL
+
+        # Rompemos la cadena: retornamos la solicitud directamente sin pasársela al DerivacionDependenciaHandler
+        return solicitud
+
+    # Si la validación es exitosa, pasa la solicitud al siguiente eslabón
+    return super().manejar(solicitud)
 
 
 class DerivacionDependenciaHandler(ManejadorAprobacion):
@@ -77,16 +80,11 @@ class DerivacionDependenciaHandler(ManejadorAprobacion):
     """
 
     def manejar(self, solicitud: Solicitud) -> Any:
-        # Como este es el último paso, si llega hasta aquí significa que aprobo al ciudadano y la legalidad
+        # Ultimo paso, se aprobo al ciudadano y la legalidad
 
         if not solicitud.dependencia_asignada:
             raise ValueError(
                 "Error: No se ha especificado una dependencia para la derivación."
             )
 
-        # Aquí podrías cambiar el estado de la solicitud o realizar la acción final
-        # solicitud.estado = EstadoSolicitud.DERIVADA (ejemplo)
-
-        # Al ser el último manejador operativo, podemos simplemente retornar
-        # la solicitud procesada como resultado del flujo exitoso.
         return solicitud
