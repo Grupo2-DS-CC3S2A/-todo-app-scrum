@@ -1,28 +1,13 @@
-<<<<<<< HEAD
-"""Repositorio del agregado Usuario (S2-05).
-
-Define el puerto ``UsuarioRepository`` y una implementacion en memoria
-thread-safe (Singleton GoF) que sustituye temporalmente a la futura
-implementacion SQLAlchemy (S2-01). Permite las operaciones minimas que
-requiere el flujo de autenticacion JWT: registrar, buscar por username
-o id, y listar.
-=======
 """Repositorio del agregado Usuario (S2-05 / MDP-54).
 
 Define el puerto ``UsuarioRepository``, el adaptador en memoria
 thread-safe (conservado para tests) y el adaptador Supabase que escribe
 en la tabla ``public.usuarios`` de PostgreSQL.
->>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-<<<<<<< HEAD
-from functools import lru_cache
-from threading import Lock
-
-=======
 from datetime import datetime
 from threading import Lock
 from typing import Any, cast
@@ -30,17 +15,12 @@ from typing import Any, cast
 from supabase import Client, create_client
 
 from src.config import settings
->>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
 from src.excepciones.errors import (
     UsuarioDuplicadoError,
     UsuarioNoEncontradoError,
 )
 from src.logging_config import get_logger
-<<<<<<< HEAD
-from src.modelos.usuario import Usuario
-=======
 from src.modelos.usuario import RolUsuario, Usuario
->>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
 
 logger = get_logger(__name__)
 
@@ -147,12 +127,6 @@ class RepositorioUsuarioEnMemoria(UsuarioRepository):
             return list(self._por_id.values())
 
 
-<<<<<<< HEAD
-@lru_cache(maxsize=1)
-def get_usuario_repository() -> UsuarioRepository:
-    """Provee una instancia del repositorio singleton de usuarios."""
-    return RepositorioUsuarioEnMemoria()
-=======
 class RepositorioUsuarioSupabase(UsuarioRepository):
     """Adaptador Supabase que persiste en public.usuarios (MDP-54)
 
@@ -247,4 +221,3 @@ class RepositorioUsuarioSupabase(UsuarioRepository):
 def get_usuario_repository() -> UsuarioRepository:
     """Provee el repositorio Supabase de usuarios."""
     return RepositorioUsuarioSupabase()
->>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799

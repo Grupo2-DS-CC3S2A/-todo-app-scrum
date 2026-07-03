@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-<<<<<<< HEAD
-from fastapi import APIRouter, Depends, HTTPException, status
-=======
 from fastapi import APIRouter, Depends
->>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
 
 from src.logging_config import get_logger
 from src.modelos.ciudadano import (
@@ -30,22 +26,6 @@ async def validar_ciudadano_api(
     servicio: CiudadanoService = Depends(get_ciudadano_service),
 ) -> ValidacionCiudadanoResponse:
     """Endpoint usado por el frontend React integrado."""
-<<<<<<< HEAD
-    try:
-        respuesta = servicio.validar(payload)
-        logger.info(
-            "Validacion ciudadano | dni=%s | valid=%s",
-            payload.dni,
-            respuesta.valid,
-        )
-        return respuesta
-    except FileNotFoundError as exc:
-        logger.exception("Base de validacion no encontrada.")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        ) from exc
-=======
     respuesta = servicio.validar(payload)
     logger.info(
         "Validacion ciudadano | dni=%s | valid=%s",
@@ -53,7 +33,6 @@ async def validar_ciudadano_api(
         respuesta.valid,
     )
     return respuesta
->>>>>>> b465b534a671ea539fa2e44c93345b99b8c45799
 
 
 @router.post(
