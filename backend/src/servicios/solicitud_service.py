@@ -1,9 +1,9 @@
-"""Servicio de dominio Mesa de Partes (HU04).
+"""Servicio de dominio Mesa de Partes.
 
-Implementa la logica de "Envio de solicitud del cliente a dependencia":
+Implementa la lógica de "Envío de solicitud del cliente a dependencia":
 recibe los datos de derivacion del administrador, asigna la dependencia,
 fija ``fecha_ingreso`` con el instante actual (UTC), calcula
-``fecha_maxima_respuesta`` por norma (30 dias habiles) y persiste la
+``fecha_maxima_respuesta`` (30 dias habiles) y persiste la
 solicitud en estado ``Pendiente``.
 
 La capa de rutas se limita a invocar este servicio (SoC / SRP); el
@@ -90,6 +90,7 @@ class SolicitudService:
             usuario_id=payload.usuario_id,
             detalle_solicitud=payload.detalle_solicitud,
             dependencia_asignada=payload.dependencia_asignada,
+            tipo_persona=payload.tipo_persona,
             fecha_ingreso=ahora,
             fecha_maxima_respuesta=fecha_maxima,
             estado=EstadoSolicitud.PENDIENTE,

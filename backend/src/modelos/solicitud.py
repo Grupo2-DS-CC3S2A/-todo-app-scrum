@@ -17,6 +17,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from src.modelos.tipo_persona import TipoPersona
+
 DETALLE_MIN_LENGTH: int = 10
 DETALLE_MAX_LENGTH: int = 2000
 USUARIO_ID_MIN_LENGTH: int = 1
@@ -80,6 +82,10 @@ class SolicitudInput(BaseModel):
         Dependencia,
         Field(description="Dependencia destinataria que debe atender el caso."),
     ]
+    tipo_persona: Annotated[
+        TipoPersona,
+        Field(description="Tipo de persona solicitante (Natural o Juridica)."),
+    ]
     fecha_maxima_respuesta: Annotated[
         datetime,
         Field(
@@ -116,6 +122,13 @@ class Solicitud(BaseModel):
         ),
     ]
     dependencia_asignada: Dependencia
+    tipo_persona: Annotated[
+        TipoPersona,
+        Field(
+            default=TipoPersona.NATURAL,
+            description="Tipo de persona solicitante (Natural o Juridica).",
+        ),
+    ]
     fecha_ingreso: Annotated[
         datetime,
         Field(default_factory=_ahora_utc),
@@ -170,6 +183,15 @@ class DerivacionInput(BaseModel):
         Dependencia,
         Field(description="Dependencia destinataria que debe atender el caso."),
     ]
+    tipo_persona: Annotated[
+        TipoPersona,
+        Field(
+            description=(
+                "Tipo de persona solicitante (Natural o Juridica), elegido "
+                "por el ciudadano al ingresar (MDP-06)."
+            ),
+        ),
+    ]
     observaciones: Annotated[
         str,
         Field(
@@ -194,6 +216,7 @@ class SolicitudDerivada(BaseModel):
     usuario_id: str
     detalle_solicitud: str
     dependencia_asignada: Dependencia
+    tipo_persona: TipoPersona
     fecha_ingreso: datetime
     fecha_maxima_respuesta: datetime
     estado: EstadoSolicitud

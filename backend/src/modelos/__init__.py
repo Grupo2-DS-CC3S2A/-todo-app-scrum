@@ -8,6 +8,7 @@ from src.modelos.solicitud import (
     SolicitudDerivada,
     SolicitudInput,
 )
+from src.modelos.tipo_persona import TipoPersona
 from src.modelos.usuario import (
     LoginInput,
     RegistroInput,
@@ -24,6 +25,7 @@ __all__ = [
     "Solicitud",
     "SolicitudDerivada",
     "SolicitudInput",
+    "TipoPersona",
     "LoginInput",
     "RegistroInput",
     "RolUsuario",

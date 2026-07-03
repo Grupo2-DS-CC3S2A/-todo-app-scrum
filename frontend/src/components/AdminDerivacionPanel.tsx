@@ -1,10 +1,8 @@
 /**
- * Panel del administrador para derivar solicitudes entrantes (HU04).
- *
- * Solo se ocupa de la presentacion: el ciclo asincrono vive en
- * ``useDerivacion`` y la notificacion de exito/error se delega al
- * ``toaster`` global. Los calculos puros (fecha maxima, formato) se
- * extraen como helpers para mantener el componente declarativo.
+ * Panel del administrador para derivar solicitudes entrantes.
+ * Se ocupa de la presentacion: el ciclo asincrono vive en
+ * ``useDerivacion`` y la notificación de exito/error se delega a
+ * ``toaster`` global.
  */
 
 import {
@@ -28,6 +26,7 @@ import {
 } from "@chakra-ui/react";
 
 import { toaster } from "@/components/ui/toaster";
+import { TipoPersonaSelector } from "@/components/TipoPersonaSelector";
 import { useDerivacion } from "@/hooks/useDerivacion";
 import {
   CATALOGO_DEPENDENCIAS,
@@ -35,6 +34,7 @@ import {
   type DependenciaCatalogoItem,
   type Solicitud,
 } from "@/types/derivacion";
+import { TipoPersona } from "@/types/tipoPersona";
 
 const SIN_SELECCION = "" as const;
 
@@ -83,6 +83,9 @@ export function AdminDerivacionPanel(): ReactElement {
   const [idSolicitud, setIdSolicitud] = useState<string>(SIN_SELECCION);
   const [codigoDependencia, setCodigoDependencia] =
     useState<string>(SIN_SELECCION);
+  const [tipoPersona, setTipoPersona] = useState<TipoPersona>(
+    TipoPersona.NATURAL,
+  );
   const [observaciones, setObservaciones] = useState<string>("");
 
   const dependenciaSeleccionada = useMemo(
@@ -124,6 +127,7 @@ export function AdminDerivacionPanel(): ReactElement {
     });
     setIdSolicitud(SIN_SELECCION);
     setCodigoDependencia(SIN_SELECCION);
+    setTipoPersona(TipoPersona.NATURAL);
     setObservaciones("");
     limpiarUltima();
   }, [ultimaDerivada, limpiarUltima]);
@@ -149,6 +153,7 @@ export function AdminDerivacionPanel(): ReactElement {
     }
     void derivar(id, {
       dependencia: dependenciaSeleccionada.codigo as Dependencia,
+      tipo_persona: tipoPersona,
       observaciones: observaciones.trim(),
     });
   };
@@ -164,6 +169,8 @@ export function AdminDerivacionPanel(): ReactElement {
             Estado destino: Pendiente
           </Badge>
         </HStack>
+
+        <TipoPersonaSelector value={tipoPersona} onChange={setTipoPersona} />
 
         <form onSubmit={handleSubmit} noValidate>
           <Stack gap={4}>

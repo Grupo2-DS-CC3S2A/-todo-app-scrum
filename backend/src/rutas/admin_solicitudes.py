@@ -79,6 +79,7 @@ def _a_respuesta(solicitud: Solicitud) -> SolicitudDerivada:
         usuario_id=solicitud.usuario_id,
         detalle_solicitud=solicitud.detalle_solicitud,
         dependencia_asignada=solicitud.dependencia_asignada,
+        tipo_persona=solicitud.tipo_persona,
         fecha_ingreso=solicitud.fecha_ingreso,
         fecha_maxima_respuesta=solicitud.fecha_maxima_respuesta,
         estado=solicitud.estado,

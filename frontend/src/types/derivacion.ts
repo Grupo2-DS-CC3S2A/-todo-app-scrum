@@ -1,9 +1,10 @@
 /**
- * Tipos del dominio Mesa de Partes (HU04).
- *
- * Espejan los modelos Pydantic del backend (`src/modelos/solicitud.py`) para
+ * Tipos del dominio Mesa de Partes.
+ * Espejan los modelos Pydantic del backend `src/modelos/solicitud.py` para
  * evitar drift entre capas.
  */
+
+import type { TipoPersona } from "@/types/tipoPersona";
 
 export const EstadoSolicitud = {
   REGISTRADA: "Registrada",
@@ -51,6 +52,7 @@ export interface Solicitud {
   readonly descripcion: string;
   readonly estado: EstadoSolicitud;
   readonly dependencia: Dependencia | null;
+  readonly tipo_persona: TipoPersona | null;
   readonly fecha_registro: string;
   readonly fecha_ingreso: string | null;
   readonly fecha_maxima_respuesta: string | null;
@@ -59,5 +61,6 @@ export interface Solicitud {
 
 export interface DerivacionInput {
   readonly dependencia: Dependencia;
+  readonly tipo_persona: TipoPersona;
   readonly observaciones: string;
 }

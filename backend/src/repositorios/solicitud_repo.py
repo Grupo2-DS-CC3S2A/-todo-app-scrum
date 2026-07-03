@@ -23,6 +23,7 @@ from src.excepciones.errors import (
 )
 from src.logging_config import get_logger
 from src.modelos.solicitud import Dependencia, EstadoSolicitud, Solicitud
+from src.modelos.tipo_persona import TipoPersona
 
 logger = get_logger(__name__)
 
@@ -165,6 +166,7 @@ class RepositorioSolicitudSupabase(SolicitudRepository):
                     "ciudadano_id": solicitud.usuario_id,
                     "detalle_solicitud": solicitud.detalle_solicitud,
                     "dependencia_asignada": solicitud.dependencia_asignada.value,
+                    "tipo_persona_origen": solicitud.tipo_persona.value,
                     "fecha_ingreso": solicitud.fecha_ingreso.isoformat(),
                     "fecha_maxima_respuesta": (
                         solicitud.fecha_maxima_respuesta.isoformat()
@@ -254,6 +256,9 @@ class RepositorioSolicitudSupabase(SolicitudRepository):
             usuario_id=str(row["ciudadano_id"]),
             detalle_solicitud=str(row["detalle_solicitud"]),
             dependencia_asignada=Dependencia(str(row["dependencia_asignada"])),
+            tipo_persona=TipoPersona(
+                str(row.get("tipo_persona_origen", TipoPersona.NATURAL.value))
+            ),
             fecha_ingreso=datetime.fromisoformat(str(row["fecha_ingreso"])),
             fecha_maxima_respuesta=datetime.fromisoformat(
                 str(row["fecha_maxima_respuesta"])
