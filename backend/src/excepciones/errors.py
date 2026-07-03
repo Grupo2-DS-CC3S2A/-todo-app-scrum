@@ -74,6 +74,12 @@ class UsuarioNoEncontradoError(DominioVotacionError):
     http_status: int = status.HTTP_404_NOT_FOUND
 
 
+class DocumentoInvalidoError(DominioVotacionError):
+    """El numero de documento no cumple el formato del tipo_persona (MDP-15)."""
+
+    http_status: int = status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     """Registra los handlers HTTP para las excepciones de dominio.
 
