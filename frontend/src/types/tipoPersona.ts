@@ -17,6 +17,7 @@ export interface TipoPersonaCatalogoItem {
   readonly etiqueta: string;
   readonly documentoLabel: string;
   readonly documentoLongitud: number;
+  readonly documentoPattern: RegExp;
 }
 
 export const CATALOGO_TIPO_PERSONA: readonly TipoPersonaCatalogoItem[] = [
@@ -25,11 +26,13 @@ export const CATALOGO_TIPO_PERSONA: readonly TipoPersonaCatalogoItem[] = [
     etiqueta: "Persona Natural",
     documentoLabel: "DNI",
     documentoLongitud: 8,
+    documentoPattern: /^\d{8}$/,
   },
   {
     codigo: TipoPersona.JURIDICA,
     etiqueta: "Persona Jurídica",
     documentoLabel: "RUC",
     documentoLongitud: 11,
+    documentoPattern: /^\d{11}$/,
   },
 ];

@@ -17,6 +17,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from functools import lru_cache
 
 from src.logging_config import get_logger
+from src.modelos.documento_solicitante import DocumentoFactory
 from src.modelos.solicitud import (
     DerivacionInput,
     EstadoSolicitud,
@@ -82,7 +83,16 @@ class SolicitudService:
         )
 
     def derivar(self, payload: DerivacionInput) -> Solicitud:
-        """Deriva una solicitud a la dependencia indicada (HU04)."""
+        """Deriva una solicitud a la dependencia indicada (HU04).
+
+        Antes de persistir, MDP-15 exige construir el documento del
+        solicitante vía ``DocumentoFactory`` (Factory Method): valida que
+        ``numero_documento`` cumpla el formato de ``tipo_persona`` (DNI de
+        8 digitos para Natural, RUC de 11 para Juridica) y rechaza la
+        solicitud antes de tocar el repositorio si no corresponde.
+        """
+        DocumentoFactory.crear(payload.tipo_persona, payload.numero_documento)
+
         ahora: datetime = datetime.now(tz=timezone.utc)
         fecha_maxima: datetime = _calcular_fecha_maxima(ahora)
 

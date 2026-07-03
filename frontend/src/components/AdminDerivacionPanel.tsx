@@ -34,7 +34,7 @@ import {
   type DependenciaCatalogoItem,
   type Solicitud,
 } from "@/types/derivacion";
-import { TipoPersona } from "@/types/tipoPersona";
+import { CATALOGO_TIPO_PERSONA, TipoPersona } from "@/types/tipoPersona";
 
 const SIN_SELECCION = "" as const;
 
@@ -86,6 +86,7 @@ export function AdminDerivacionPanel(): ReactElement {
   const [tipoPersona, setTipoPersona] = useState<TipoPersona>(
     TipoPersona.NATURAL,
   );
+  const [numeroDocumento, setNumeroDocumento] = useState<string>("");
   const [observaciones, setObservaciones] = useState<string>("");
 
   const dependenciaSeleccionada = useMemo(
@@ -128,6 +129,7 @@ export function AdminDerivacionPanel(): ReactElement {
     setIdSolicitud(SIN_SELECCION);
     setCodigoDependencia(SIN_SELECCION);
     setTipoPersona(TipoPersona.NATURAL);
+    setNumeroDocumento("");
     setObservaciones("");
     limpiarUltima();
   }, [ultimaDerivada, limpiarUltima]);
@@ -151,9 +153,24 @@ export function AdminDerivacionPanel(): ReactElement {
       });
       return;
     }
+    const catalogoTipoPersona = CATALOGO_TIPO_PERSONA.find(
+      (t) => t.codigo === tipoPersona,
+    );
+    if (
+      !catalogoTipoPersona ||
+      !catalogoTipoPersona.documentoPattern.test(numeroDocumento)
+    ) {
+      toaster.create({
+        type: "warning",
+        title: "Datos invalidos",
+        description: `Ingresa un ${catalogoTipoPersona?.documentoLabel ?? "documento"} valido (${catalogoTipoPersona?.documentoLongitud ?? "?"} dígitos).`,
+      });
+      return;
+    }
     void derivar(id, {
       dependencia: dependenciaSeleccionada.codigo as Dependencia,
       tipo_persona: tipoPersona,
+      numero_documento: numeroDocumento,
       observaciones: observaciones.trim(),
     });
   };
@@ -170,7 +187,15 @@ export function AdminDerivacionPanel(): ReactElement {
           </Badge>
         </HStack>
 
-        <TipoPersonaSelector value={tipoPersona} onChange={setTipoPersona} />
+        <TipoPersonaSelector
+          value={tipoPersona}
+          onChange={(nuevoTipo) => {
+            setTipoPersona(nuevoTipo);
+            setNumeroDocumento("");
+          }}
+          numeroDocumento={numeroDocumento}
+          onNumeroDocumentoChange={setNumeroDocumento}
+        />
 
         <form onSubmit={handleSubmit} noValidate>
           <Stack gap={4}>

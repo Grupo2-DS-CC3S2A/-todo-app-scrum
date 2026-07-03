@@ -192,6 +192,18 @@ class DerivacionInput(BaseModel):
             ),
         ),
     ]
+    numero_documento: Annotated[
+        str,
+        Field(
+            min_length=1,
+            max_length=11,
+            description=(
+                "Numero de documento del solicitante: DNI (8 digitos) si "
+                "tipo_persona es Natural, RUC (11 digitos) si es Juridica. "
+                "El formato exacto lo valida DocumentoFactory (MDP-15)."
+            ),
+        ),
+    ]
     observaciones: Annotated[
         str,
         Field(

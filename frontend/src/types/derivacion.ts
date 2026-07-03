@@ -62,5 +62,6 @@ export interface Solicitud {
 export interface DerivacionInput {
   readonly dependencia: Dependencia;
   readonly tipo_persona: TipoPersona;
+  readonly numero_documento: string;
   readonly observaciones: string;
 }
