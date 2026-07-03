@@ -129,6 +129,70 @@ class TestEndpointDerivar:
         assert resp.status_code == 422
 
 
+class TestEndpointSugerirDependencia:
+    """MDP-10: endpoint que expone la sugerencia antes de derivar."""
+
+    _PAYLOAD_SUGERENCIA = {
+        "tipo_persona": "NATURAL",
+        "detalle_solicitud": "Solicitud de prueba con suficiente detalle",
+    }
+
+    def test_sin_token_retorna_403(self, client: TestClient):
+        resp = client.post(
+            "/api/admin/solicitudes/sugerir-dependencia",
+            json=self._PAYLOAD_SUGERENCIA,
+        )
+        assert resp.status_code == 403
+
+    def test_sugerencia_natural_retorna_mesa_de_partes(
+        self, client: TestClient, monkeypatch
+    ):
+        monkeypatch.setenv("ADMIN_TOKEN", _TOKEN)
+        resp = client.post(
+            "/api/admin/solicitudes/sugerir-dependencia",
+            json=self._PAYLOAD_SUGERENCIA,
+            headers={"X-Admin-Token": _TOKEN},
+        )
+        assert resp.status_code == 200
+        datos = resp.json()
+        assert datos["dependencia"] == "MesaDePartes"
+        assert 0.0 <= datos["puntaje"] <= 100.0
+
+    def test_sugerencia_juridica_retorna_asesoria_legal(
+        self, client: TestClient, monkeypatch
+    ):
+        monkeypatch.setenv("ADMIN_TOKEN", _TOKEN)
+        payload = {**self._PAYLOAD_SUGERENCIA, "tipo_persona": "JURIDICA"}
+        resp = client.post(
+            "/api/admin/solicitudes/sugerir-dependencia",
+            json=payload,
+            headers={"X-Admin-Token": _TOKEN},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["dependencia"] == "AsesoriaLegal"
+
+    def test_payload_invalido_retorna_422(self, client: TestClient, monkeypatch):
+        monkeypatch.setenv("ADMIN_TOKEN", _TOKEN)
+        resp = client.post(
+            "/api/admin/solicitudes/sugerir-dependencia",
+            json={"tipo_persona": "NATURAL"},
+            headers={"X-Admin-Token": _TOKEN},
+        )
+        assert resp.status_code == 422
+
+    def test_no_persiste_ninguna_solicitud(self, client: TestClient, monkeypatch):
+        monkeypatch.setenv("ADMIN_TOKEN", _TOKEN)
+        headers = {"X-Admin-Token": _TOKEN}
+        antes = client.get("/api/admin/solicitudes/", headers=headers).json()
+        client.post(
+            "/api/admin/solicitudes/sugerir-dependencia",
+            json=self._PAYLOAD_SUGERENCIA,
+            headers=headers,
+        )
+        despues = client.get("/api/admin/solicitudes/", headers=headers).json()
+        assert len(despues) == len(antes)
+
+
 class TestEndpointObtenerSolicitud:
     def test_obtener_solicitud_existente(self, client: TestClient, monkeypatch):
         monkeypatch.setenv("ADMIN_TOKEN", _TOKEN)
