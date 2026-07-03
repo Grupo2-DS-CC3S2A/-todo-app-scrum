@@ -65,3 +65,13 @@ export interface DerivacionInput {
   readonly numero_documento: string;
   readonly observaciones: string;
 }
+
+export interface SugerenciaDependenciaInput {
+  readonly tipo_persona: TipoPersona;
+  readonly detalle_solicitud: string;
+}
+
+export interface SugerenciaDependenciaResponse {
+  readonly dependencia: Dependencia;
+  readonly puntaje: number;
+}

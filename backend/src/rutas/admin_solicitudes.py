@@ -19,8 +19,16 @@ from src.modelos.solicitud import (
     Solicitud,
     SolicitudDerivada,
 )
+from src.modelos.sugerencia import (
+    SugerenciaDependenciaInput,
+    SugerenciaDependenciaResponse,
+)
 from src.modelos.usuario import RolUsuario
 from src.servicios.auth_service import AuthService, get_auth_service
+from src.servicios.enrutamiento_service import (
+    SugerenciaDependenciaService,
+    get_sugerencia_dependencia_service,
+)
 from src.servicios.solicitud_service import (
     SolicitudService,
     get_solicitud_service,
@@ -105,6 +113,30 @@ async def derivar_solicitud(
     """
     solicitud: Solicitud = servicio.derivar(payload)
     return _a_respuesta(solicitud)
+
+
+@router.post(
+    "/sugerir-dependencia",
+    response_model=SugerenciaDependenciaResponse,
+    summary="Sugiere una dependencia y un puntaje de prioridad (MDP-10).",
+)
+async def sugerir_dependencia(
+    payload: SugerenciaDependenciaInput,
+    servicio: SugerenciaDependenciaService = Depends(
+        get_sugerencia_dependencia_service
+    ),
+    _admin: str = Depends(verificar_admin),
+) -> SugerenciaDependenciaResponse:
+    """Sugiere dependencia y prioridad antes de derivar (Strategy, MDP-10).
+
+    El admin puede aceptar la sugerencia o sobreescribirla al derivar:
+    este endpoint no persiste nada, solo calcula la recomendacion.
+    """
+    sugerencia = servicio.sugerir(payload.tipo_persona, payload.detalle_solicitud)
+    return SugerenciaDependenciaResponse(
+        dependencia=sugerencia.dependencia,
+        puntaje=sugerencia.puntaje,
+    )
 
 
 @router.get(
