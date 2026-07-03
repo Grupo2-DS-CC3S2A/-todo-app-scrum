@@ -57,20 +57,19 @@ class ValidacionCiudadanoHandler(ManejadorAprobacion):
 class AprobacionLegalHandler(ManejadorAprobacion):
     """
     Segundo eslabón: Verifica que el contenido de la solicitud
-    cumpla con el marco legal o los requisitos mínimos de forma.
+    cumpla con el marco legal. Si falla, se rechaza y detiene el flujo.
     """
 
+    def manejar(self, solicitud: Solicitud) -> Any:
+        if not solicitud.detalle_solicitud or len(solicitud.detalle_solicitud) < 15:
 
-def manejar(self, solicitud: Solicitud) -> Any:
-    if not solicitud.detalle_solicitud or len(solicitud.detalle_solicitud) < 15:
+            # Creamos una copia con el nuevo estado
+            solicitud_rechazada = solicitud.model_copy(
+                update={"estado": EstadoSolicitud.RECHAZADA_LEGAL}
+            )
+            return solicitud_rechazada
 
-        solicitud.estado = EstadoSolicitud.RECHAZADA_LEGAL
-
-        # Rompemos la cadena: retornamos la solicitud directamente sin pasársela al DerivacionDependenciaHandler
-        return solicitud
-
-    # Si la validación es exitosa, pasa la solicitud al siguiente eslabón
-    return super().manejar(solicitud)
+        return super().manejar(solicitud)
 
 
 class DerivacionDependenciaHandler(ManejadorAprobacion):

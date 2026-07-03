@@ -1,4 +1,5 @@
 import pytest
+from datetime import datetime, timezone, timedelta
 from typing import Any
 from src.modelos.solicitud import Solicitud, EstadoSolicitud, Dependencia
 from src.servicios.cadena_aprobacion import (
@@ -27,6 +28,11 @@ class SpyManejador(ManejadorAprobacion):
         return solicitud
 
 
+fecha_prueba = datetime.now(tz=timezone.utc)
+fecha_in_prueba = datetime.now(tz=timezone.utc)
+fecha_max_prueba = fecha_in_prueba + timedelta(days=5)
+
+
 # Pruebas para ValidacionCiudadanoHandler
 def test_validacion_ciudadano_handler_exitoso():
     solicitud = Solicitud(
@@ -34,6 +40,8 @@ def test_validacion_ciudadano_handler_exitoso():
         detalle_solicitud="Sustento válido de mi solicitud",
         dependencia_asignada=Dependencia.MESA_DE_PARTES,
         estado=EstadoSolicitud.PENDIENTE,
+        fecha_ingreso=fecha_in_prueba,
+        fecha_maxima_respuesta=fecha_max_prueba,
     )
     handler = ValidacionCiudadanoHandler()
     espia = SpyManejador()
@@ -46,11 +54,13 @@ def test_validacion_ciudadano_handler_exitoso():
 
 
 def test_validacion_ciudadano_handler_falla_sin_usuario():
-    solicitud = Solicitud(
+    solicitud = Solicitud.model_construct(
         usuario_id="",
         detalle_solicitud="Sustento válido de mi solicitud",
         dependencia_asignada=Dependencia.MESA_DE_PARTES,
         estado=EstadoSolicitud.PENDIENTE,
+        fecha_ingreso=fecha_in_prueba,
+        fecha_maxima_respuesta=fecha_max_prueba,
     )
     handler = ValidacionCiudadanoHandler()
     espia = SpyManejador()
@@ -66,11 +76,13 @@ def test_validacion_ciudadano_handler_falla_sin_usuario():
 
 # Pruebas para AprobacionLegalHandler
 def test_aprobacion_legal_handler_exitoso():
-    solicitud = Solicitud(
+    solicitud = Solicitud.model_construct(
         usuario_id="ciudadano-123",
         detalle_solicitud="Sustento con longitud legal suficiente",
         dependencia_asignada=Dependencia.MESA_DE_PARTES,
         estado=EstadoSolicitud.PENDIENTE,
+        fecha_ingreso=fecha_in_prueba,
+        fecha_maxima_respuesta=fecha_max_prueba,
     )
     handler = AprobacionLegalHandler()
     espia = SpyManejador()
@@ -82,11 +94,13 @@ def test_aprobacion_legal_handler_exitoso():
 
 
 def test_aprobacion_legal_handler_rechazo_mutacion_estado():
-    solicitud = Solicitud(
+    solicitud = Solicitud.model_construct(
         usuario_id="ciudadano-123",
         detalle_solicitud="Muy corto",
         dependencia_asignada=Dependencia.MESA_DE_PARTES,
         estado=EstadoSolicitud.PENDIENTE,
+        fecha_ingreso=fecha_in_prueba,
+        fecha_maxima_respuesta=fecha_max_prueba,
     )
     handler = AprobacionLegalHandler()
     espia = SpyManejador()
@@ -105,6 +119,8 @@ def test_derivacion_dependencia_handler_exitoso():
         detalle_solicitud="Sustento válido de mi solicitud",
         dependencia_asignada=Dependencia.MESA_DE_PARTES,
         estado=EstadoSolicitud.PENDIENTE,
+        fecha_ingreso=fecha_in_prueba,
+        fecha_maxima_respuesta=fecha_max_prueba,
     )
     handler = DerivacionDependenciaHandler()
 
@@ -114,11 +130,13 @@ def test_derivacion_dependencia_handler_exitoso():
 
 
 def test_derivacion_dependencia_handler_falla_sin_dependencia():
-    solicitud = Solicitud(
+    solicitud = Solicitud.model_construct(
         usuario_id="ciudadano-123",
         detalle_solicitud="Sustento válido de mi solicitud",
         dependencia_asignada=None,
         estado=EstadoSolicitud.PENDIENTE,
+        fecha_ingreso=fecha_in_prueba,
+        fecha_maxima_respuesta=fecha_max_prueba,
     )
     handler = DerivacionDependenciaHandler()
 
