@@ -7,7 +7,7 @@ on:
       - developer
 
 env:
-  PROJECT_ID: 'mesa-de-partes-501300 ' # REEMPLAZA ESTO
+  PROJECT_ID: 'mesa-de-partes-501300' # Arreglado: espacio final eliminado
   REGION: 'us-central1'
   SERVICE_NAME: 'todo-app-backend'
 
@@ -29,8 +29,7 @@ jobs:
       - name: Configurar Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      # Enviar el código directamente a Cloud Build y Cloud Run
-      # gcloud lee tu Dockerfile multi-stage, construye la imagen optimizada en la nube y la despliega
+      # Enviar el código directamente a Cloud Build y Cloud Run inyectando los Secrets de GitHub
       - name: Construir y Desplegar en Cloud Run
         run: |
           gcloud run deploy ${{ env.SERVICE_NAME }} \
@@ -38,4 +37,5 @@ jobs:
             --region ${{ env.REGION }} \
             --port 8000 \
             --allow-unauthenticated \
-            --project ${{ env.PROJECT_ID }}
+            --project ${{ env.PROJECT_ID }} \
+            --set-env-vars "^##^CORS_ORIGINS=${{ secrets.CORS_ORIGINS }}##SECRET_KEY_JWT=${{ secrets.SECRET_KEY_JWT }}##SUPABASE_URL=${{ secrets.SUPABASE_URL }}##SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
