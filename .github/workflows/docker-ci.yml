@@ -44,8 +44,8 @@ jobs:
         with:
           version: latest
 
-      # Vincular y subir las migraciones automáticas al repositorio remoto supabase
+      # Sincronizar y subir las migraciones corregidas
       - name: Ejecutar Migraciones en Supabase
         run: |
-          supabase db link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }} --password ${{ secrets.SUPABASE_DB_PASSWORD }}
+          supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" --password "${{ secrets.SUPABASE_DB_PASSWORD }}"
           supabase db push
