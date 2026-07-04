@@ -8,7 +8,7 @@ from src.modelos.solicitud import (
     SolicitudDerivada,
     SolicitudInput,
 )
-from src.modelos.voto import AuditoriaVotos, VotoCifrado, VotoInput
+from src.modelos.tipo_persona import TipoPersona
 from src.modelos.usuario import (
     LoginInput,
     RegistroInput,
@@ -19,15 +19,13 @@ from src.modelos.usuario import (
 )
 
 __all__ = [
-    "AuditoriaVotos",
     "Dependencia",
     "DerivacionInput",
     "EstadoSolicitud",
     "Solicitud",
     "SolicitudDerivada",
     "SolicitudInput",
-    "VotoCifrado",
-    "VotoInput",
+    "TipoPersona",
     "LoginInput",
     "RegistroInput",
     "RolUsuario",

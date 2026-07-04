@@ -1,13 +1,10 @@
-import { useEffect, useState, type FormEvent, type ReactElement } from "react";
+import { useState, type FormEvent, type ReactElement } from "react";
 
 import { validarCiudadano } from "@/api/validationApi";
-import { VotingForm } from "@/components/VotingForm";
-import { VotingReceipt } from "@/components/VotingReceipt";
-import { useVoting } from "@/hooks/useVoting";
 import { ApiError } from "@/types/voting";
 import type { CiudadanoValidado } from "@/types/ciudadano";
 
-type Screen = "status" | "validation" | "dashboard" | "registration" | "inbox" | "vote";
+type Screen = "status" | "validation" | "dashboard" | "registration" | "inbox";
 type MessageKind = "success" | "warning" | "error" | "info";
 
 interface AppMessage {
@@ -50,8 +47,6 @@ export default function App(): ReactElement {
   const [termsOpen, setTermsOpen] = useState<boolean>(false);
   const [registrationStep, setRegistrationStep] = useState<1 | 2>(1);
 
-  const { comprobante, cargando, error, votar, reset } = useVoting();
-
   const showScreen = (nextScreen: Screen): void => {
     if (requiereSesion(nextScreen) && !user) {
       setMessage({ kind: "warning", text: "Primero valida tus datos para ingresar al sistema." });
@@ -59,22 +54,9 @@ export default function App(): ReactElement {
       return;
     }
     if (nextScreen === "registration") setRegistrationStep(1);
-    if (nextScreen !== "vote") reset();
     setMessage(null);
     setScreen(nextScreen);
   };
-
-  useEffect(() => {
-    if (error) {
-      setMessage({ kind: "error", text: error.message });
-    }
-  }, [error]);
-
-  useEffect(() => {
-    if (comprobante) {
-      setMessage({ kind: "success", text: "Voto registrado correctamente." });
-    }
-  }, [comprobante]);
 
   return (
     <div className="app-shell">
@@ -98,16 +80,13 @@ export default function App(): ReactElement {
           <button className={screen === "inbox" ? "active" : ""} onClick={() => showScreen("inbox")}>
             Mis Documentos
           </button>
-          <button className={screen === "vote" ? "active vote-link" : "vote-link"} onClick={() => showScreen("vote")}>
-            Voto Electronico
-          </button>
         </div>
         <div className="user-info">
           {user ? `DNI: ${user.dni} | ${fullName(user)}` : "DNI: 066XXXXX | USUARIO NO VALIDADO"}
         </div>
       </nav>
 
-      <main className={screen === "vote" ? "container container-wide" : "container"}>
+      <main className={"container"}>
         {message && <div className={`app-message ${message.kind}`}>{message.text}</div>}
         {screen === "status" && <StatusScreen onContinue={() => showScreen("validation")} />}
         {screen === "validation" && (
@@ -134,15 +113,6 @@ export default function App(): ReactElement {
               setMessage({ kind: "success", text: "Documento registrado con exito." });
               setScreen("dashboard");
             }}
-          />
-        )}
-        {screen === "vote" && user && (
-          <VoteScreen
-            user={user}
-            comprobante={comprobante}
-            cargando={cargando}
-            votar={votar}
-            onValidationError={(text) => setMessage({ kind: "warning", text })}
           />
         )}
       </main>
@@ -342,7 +312,7 @@ function DashboardScreen({
         Estimado <strong>{userName}</strong>, por este canal virtual podra presentar documentos de forma rapida sin necesidad de acercarse a la Mesa de Partes del RENIEC.
       </p>
 
-      <div className="dashboard-grid dashboard-grid-3">
+      <div className="dashboard-grid dashboard-grid-2">
         <button className="card" onClick={() => onNavigate("registration")}>
           <div className="card-icon">📄</div>
           <h3>Registro de Documento</h3>
@@ -352,11 +322,6 @@ function DashboardScreen({
           <div className="card-icon">📁</div>
           <h3>Mis Documentos</h3>
           <p>Consulte sus tramites realizados</p>
-        </button>
-        <button className="card card-vote" onClick={() => onNavigate("vote")}>
-          <div className="card-icon">🗳️</div>
-          <h3>Voto Electronico</h3>
-          <p>Emita su voto de forma segura</p>
         </button>
       </div>
     </section>
@@ -513,51 +478,6 @@ function RegistrationScreen({
           </div>
         </div>
       )}
-    </section>
-  );
-}
-
-function VoteScreen({
-  user,
-  comprobante,
-  cargando,
-  votar,
-  onValidationError,
-}: {
-  readonly user: CiudadanoValidado;
-  readonly comprobante: ReturnType<typeof useVoting>["comprobante"];
-  readonly cargando: boolean;
-  readonly votar: ReturnType<typeof useVoting>["votar"];
-  readonly onValidationError: (text: string) => void;
-}): ReactElement {
-  return (
-    <section className="vote-layout">
-      <div className="vote-panel-left">
-        <div className="vote-logo">RENIEC</div>
-        <h2>Mesa de Partes</h2>
-        <h3>Electronica RENIEC</h3>
-        <p>
-          Sistema de voto electronico seguro con cifrado SHA-256 y llaves evolutivas para garantizar anonimato e inmutabilidad.
-        </p>
-        <span>Seguro · Anonimo · Trazable</span>
-      </div>
-
-      <div className="vote-panel-right">
-        <h2>Registro de Solicitud</h2>
-        <p className="screen-description">Ingresa tus datos para emitir tu voto de forma segura.</p>
-        <div className="validated-user-box">
-          Ciudadano validado: <strong>{fullName(user)}</strong>
-        </div>
-        <VotingForm
-          cargando={cargando}
-          dniInicial={user.dni}
-          bloquearDni
-          onSubmit={votar}
-          onValidationError={onValidationError}
-        />
-        {comprobante && <VotingReceipt comprobante={comprobante} />}
-        <p className="legal-note">Sistema protegido bajo normas de la Ley N° 27269 — RENIEC 2026</p>
-      </div>
     </section>
   );
 }

@@ -19,8 +19,16 @@ from src.modelos.solicitud import (
     Solicitud,
     SolicitudDerivada,
 )
+from src.modelos.sugerencia import (
+    SugerenciaDependenciaInput,
+    SugerenciaDependenciaResponse,
+)
 from src.modelos.usuario import RolUsuario
 from src.servicios.auth_service import AuthService, get_auth_service
+from src.servicios.enrutamiento_service import (
+    SugerenciaDependenciaService,
+    get_sugerencia_dependencia_service,
+)
 from src.servicios.solicitud_service import (
     SolicitudService,
     get_solicitud_service,
@@ -79,6 +87,7 @@ def _a_respuesta(solicitud: Solicitud) -> SolicitudDerivada:
         usuario_id=solicitud.usuario_id,
         detalle_solicitud=solicitud.detalle_solicitud,
         dependencia_asignada=solicitud.dependencia_asignada,
+        tipo_persona=solicitud.tipo_persona,
         fecha_ingreso=solicitud.fecha_ingreso,
         fecha_maxima_respuesta=solicitud.fecha_maxima_respuesta,
         estado=solicitud.estado,
@@ -106,6 +115,30 @@ async def derivar_solicitud(
     return _a_respuesta(solicitud)
 
 
+@router.post(
+    "/sugerir-dependencia",
+    response_model=SugerenciaDependenciaResponse,
+    summary="Sugiere una dependencia y un puntaje de prioridad (MDP-10).",
+)
+async def sugerir_dependencia(
+    payload: SugerenciaDependenciaInput,
+    servicio: SugerenciaDependenciaService = Depends(
+        get_sugerencia_dependencia_service
+    ),
+    _admin: str = Depends(verificar_admin),
+) -> SugerenciaDependenciaResponse:
+    """Sugiere dependencia y prioridad antes de derivar (Strategy, MDP-10).
+
+    El admin puede aceptar la sugerencia o sobreescribirla al derivar:
+    este endpoint no persiste nada, solo calcula la recomendacion.
+    """
+    sugerencia = servicio.sugerir(payload.tipo_persona, payload.detalle_solicitud)
+    return SugerenciaDependenciaResponse(
+        dependencia=sugerencia.dependencia,
+        puntaje=sugerencia.puntaje,
+    )
+
+
 @router.get(
     "/{solicitud_id}",
     response_model=SolicitudDerivada,
@@ -122,7 +155,7 @@ async def obtener_solicitud(
 
 
 @router.get(
-    "",
+    "/",
     response_model=list[Solicitud],
     summary="Listar todas las solicitudes del sistema.",
 )

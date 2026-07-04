@@ -1,9 +1,9 @@
-"""Servicio de dominio Mesa de Partes (HU04).
+"""Servicio de dominio Mesa de Partes.
 
-Implementa la logica de "Envio de solicitud del cliente a dependencia":
+Implementa la lógica de "Envío de solicitud del cliente a dependencia":
 recibe los datos de derivacion del administrador, asigna la dependencia,
 fija ``fecha_ingreso`` con el instante actual (UTC), calcula
-``fecha_maxima_respuesta`` por norma (30 dias habiles) y persiste la
+``fecha_maxima_respuesta`` (30 dias habiles) y persiste la
 solicitud en estado ``Pendiente``.
 
 La capa de rutas se limita a invocar este servicio (SoC / SRP); el
@@ -15,17 +15,23 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta, timezone
 from functools import lru_cache
-from threading import Lock
 
-from src.excepciones.errors import (
-    SolicitudDuplicadaError,
-    SolicitudNoEncontradaError,
-)
 from src.logging_config import get_logger
+from src.modelos.documento_solicitante import DocumentoFactory
 from src.modelos.solicitud import (
     DerivacionInput,
     EstadoSolicitud,
     Solicitud,
+)
+from src.repositorios.solicitud_repo import (
+    RepositorioSolicitudEnMemoria,
+    RepositorioSolicitudSupabase,
+    SolicitudRepository,
+)
+from src.servicios.cadena_aprobacion import (
+    ValidacionCiudadanoHandler,
+    AprobacionLegalHandler,
+    DerivacionDependenciaHandler,
 )
 
 logger = get_logger(__name__)
@@ -70,34 +76,28 @@ def _calcular_fecha_maxima(ahora: datetime) -> datetime:
 class SolicitudService:
     """Coordina el ciclo de vida de las solicitudes (HU04).
 
-    Mantiene un repositorio en memoria thread-safe; en produccion se
-    sustituye por una base de datos persistente sin cambiar el contrato
-    publico del servicio (DIP).
+    Delega la persistencia a un ``SolicitudRepository`` inyectado; por
+    defecto usa el adaptador en memoria (apto para tests y desarrollo).
+    En produccion se inyecta ``RepositorioSolicitudSupabase`` sin cambiar
+    esta clase (DIP).
     """
 
-    def __init__(self) -> None:
-        self._solicitudes: dict[str, Solicitud] = {}
-        self._lock: Lock = Lock()
+    def __init__(self, repo: SolicitudRepository | None = None) -> None:
+        self._repo: SolicitudRepository = (
+            repo if repo is not None else RepositorioSolicitudEnMemoria()
+        )
 
     def derivar(self, payload: DerivacionInput) -> Solicitud:
         """Deriva una solicitud a la dependencia indicada (HU04).
 
-        Aplica los criterios de aceptacion:
-        - asigna la dependencia destino,
-        - registra ``fecha_ingreso`` con el instante actual UTC,
-        - calcula ``fecha_maxima_respuesta`` sumando 30 dias habiles,
-        - fija el estado en ``Pendiente``.
-
-        Args:
-            payload: Datos de derivacion ya validados por Pydantic.
-
-        Returns:
-            La entidad ``Solicitud`` recien creada y persistida.
-
-        Raises:
-            SolicitudDuplicadaError: Si por colision el id generado ya
-                existiese (extremadamente improbable con UUID4).
+        Antes de persistir, MDP-15 exige construir el documento del
+        solicitante vía ``DocumentoFactory`` (Factory Method): valida que
+        ``numero_documento`` cumpla el formato de ``tipo_persona`` (DNI de
+        8 digitos para Natural, RUC de 11 para Juridica) y rechaza la
+        solicitud antes de tocar el repositorio si no corresponde.
         """
+        DocumentoFactory.crear(payload.tipo_persona, payload.numero_documento)
+
         ahora: datetime = datetime.now(tz=timezone.utc)
         fecha_maxima: datetime = _calcular_fecha_maxima(ahora)
 
@@ -105,23 +105,36 @@ class SolicitudService:
             usuario_id=payload.usuario_id,
             detalle_solicitud=payload.detalle_solicitud,
             dependencia_asignada=payload.dependencia_asignada,
+            tipo_persona=payload.tipo_persona,
             fecha_ingreso=ahora,
             fecha_maxima_respuesta=fecha_maxima,
             estado=EstadoSolicitud.PENDIENTE,
         )  # type: ignore
 
-        with self._lock:
-            if solicitud.id in self._solicitudes:
-                raise SolicitudDuplicadaError(
-                    f"Ya existe una solicitud con id={solicitud.id}."
-                )
-            self._solicitudes[solicitud.id] = solicitud
+        # Inicio de cadena de responsabilidades
+        validador_ciudadano = ValidacionCiudadanoHandler()
+        aprobador_legal = AprobacionLegalHandler()
+        derivador_dependencia = DerivacionDependenciaHandler()
+
+        # Secuencia: Ciudadano -> Legal -> Derivacion
+        validador_ciudadano.set_siguiente(aprobador_legal).set_siguiente(
+            derivador_dependencia
+        )
+
+        # Si la Asesoria Legal rechaza, el resultado es una copia
+        # de la solicitud con estado RECHAZADA_LEGAL en vez de la
+        # solicitud original; hay que persistir ese resultado.
+        solicitud = validador_ciudadano.manejar(solicitud)
+
+        # Persistencia correcta usando el repositorio inyectado
+        self._repo.guardar(solicitud)
 
         logger.info(
-            "Solicitud derivada | id=%s | dependencia=%s | "
+            "Solicitud derivada | id=%s | dependencia=%s | estado=%s | "
             "fecha_ingreso=%s | fecha_maxima=%s",
             solicitud.id,
             solicitud.dependencia_asignada.value,
+            solicitud.estado.value,
             solicitud.fecha_ingreso.isoformat(),
             solicitud.fecha_maxima_respuesta.isoformat(),
         )
@@ -129,24 +142,17 @@ class SolicitudService:
 
     def obtener(self, solicitud_id: str) -> Solicitud:
         """Recupera una solicitud por id."""
-        with self._lock:
-            solicitud: Solicitud | None = self._solicitudes.get(solicitud_id)
-        if solicitud is None:
-            raise SolicitudNoEncontradaError(
-                f"No existe solicitud con id={solicitud_id}."
-            )
-        return solicitud
+        return self._repo.obtener_por_id(solicitud_id)
 
     def listar(self) -> list[Solicitud]:
-        """Devuelve copia inmutable del repositorio de solicitudes."""
-        with self._lock:
-            return list(self._solicitudes.values())
+        """Devuelve todas las solicitudes almacenadas."""
+        return self._repo.listar_todas()
 
 
 @lru_cache(maxsize=1)
 def get_solicitud_service() -> SolicitudService:
-    """Provee la instancia singleton del servicio (DI para FastAPI)."""
-    return SolicitudService()
+    """Provee la instancia singleton del servicio con persistencia Supabase."""
+    return SolicitudService(repo=RepositorioSolicitudSupabase())
 
 
 __all__ = [

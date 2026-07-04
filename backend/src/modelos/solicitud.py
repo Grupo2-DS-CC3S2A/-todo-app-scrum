@@ -17,6 +17,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from src.modelos.tipo_persona import TipoPersona
+
 DETALLE_MIN_LENGTH: int = 10
 DETALLE_MAX_LENGTH: int = 2000
 USUARIO_ID_MIN_LENGTH: int = 1
@@ -26,10 +28,12 @@ USUARIO_ID_MAX_LENGTH: int = 64
 class EstadoSolicitud(str, Enum):
     """Estados validos del ciclo de vida de una solicitud."""
 
+    REGISTRADA = "Registrada"
     PENDIENTE = "Pendiente"
-    EN_PROCESO = "En Proceso"
-    ATENDIDA = "Atendida"
+    EN_PROCESO = "EnProceso"
+    RESPONDIDA = "Respondida"
     RECHAZADA = "Rechazada"
+    RECHAZADA_LEGAL = "Rechazada legal"
 
 
 class Dependencia(str, Enum):
@@ -79,6 +83,10 @@ class SolicitudInput(BaseModel):
         Dependencia,
         Field(description="Dependencia destinataria que debe atender el caso."),
     ]
+    tipo_persona: Annotated[
+        TipoPersona,
+        Field(description="Tipo de persona solicitante (Natural o Juridica)."),
+    ]
     fecha_maxima_respuesta: Annotated[
         datetime,
         Field(
@@ -115,6 +123,13 @@ class Solicitud(BaseModel):
         ),
     ]
     dependencia_asignada: Dependencia
+    tipo_persona: Annotated[
+        TipoPersona,
+        Field(
+            default=TipoPersona.NATURAL,
+            description="Tipo de persona solicitante (Natural o Juridica).",
+        ),
+    ]
     fecha_ingreso: Annotated[
         datetime,
         Field(default_factory=_ahora_utc),
@@ -169,6 +184,27 @@ class DerivacionInput(BaseModel):
         Dependencia,
         Field(description="Dependencia destinataria que debe atender el caso."),
     ]
+    tipo_persona: Annotated[
+        TipoPersona,
+        Field(
+            description=(
+                "Tipo de persona solicitante (Natural o Juridica), elegido "
+                "por el ciudadano al ingresar (MDP-06)."
+            ),
+        ),
+    ]
+    numero_documento: Annotated[
+        str,
+        Field(
+            min_length=1,
+            max_length=11,
+            description=(
+                "Numero de documento del solicitante: DNI (8 digitos) si "
+                "tipo_persona es Natural, RUC (11 digitos) si es Juridica. "
+                "El formato exacto lo valida DocumentoFactory (MDP-15)."
+            ),
+        ),
+    ]
     observaciones: Annotated[
         str,
         Field(
@@ -193,6 +229,7 @@ class SolicitudDerivada(BaseModel):
     usuario_id: str
     detalle_solicitud: str
     dependencia_asignada: Dependencia
+    tipo_persona: TipoPersona
     fecha_ingreso: datetime
     fecha_maxima_respuesta: datetime
     estado: EstadoSolicitud

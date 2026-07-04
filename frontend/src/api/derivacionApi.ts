@@ -10,7 +10,12 @@
  */
 
 import { ApiError, type ApiErrorBody } from "@/types/voting";
-import type { DerivacionInput, Solicitud } from "@/types/derivacion";
+import type {
+  DerivacionInput,
+  Solicitud,
+  SugerenciaDependenciaInput,
+  SugerenciaDependenciaResponse,
+} from "@/types/derivacion";
 
 const DEFAULT_BASE_URL = "http://localhost:8000";
 
@@ -63,4 +68,18 @@ export function derivarSolicitud(
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export function sugerirDependencia(
+  payload: SugerenciaDependenciaInput,
+  token: string,
+): Promise<SugerenciaDependenciaResponse> {
+  return request<SugerenciaDependenciaResponse>(
+    "/api/admin/solicitudes/sugerir-dependencia",
+    token,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
 }
