@@ -145,5 +145,5 @@ npm run dev
 | Alvaro Jesus Taipe Cotrina |
 | Andrew Owim Inga Rojas     |
 | César Omar López Arteaga   |
-| Jose Alfredo Palomino E.   |
+| Jose Alfredo Palomino      |
 | Leonardo Chacón            |
