@@ -121,17 +121,20 @@ class SolicitudService:
             derivador_dependencia
         )
 
-        # Ejecutamos el flujo, si alguno falla, lanzara una excepcion
-        validador_ciudadano.manejar(solicitud)
+        # Si la Asesoria Legal rechaza, el resultado es una copia
+        # de la solicitud con estado RECHAZADA_LEGAL en vez de la
+        # solicitud original; hay que persistir ese resultado.
+        solicitud = validador_ciudadano.manejar(solicitud)
 
         # Persistencia correcta usando el repositorio inyectado
         self._repo.guardar(solicitud)
 
         logger.info(
-            "Solicitud derivada | id=%s | dependencia=%s | "
+            "Solicitud derivada | id=%s | dependencia=%s | estado=%s | "
             "fecha_ingreso=%s | fecha_maxima=%s",
             solicitud.id,
             solicitud.dependencia_asignada.value,
+            solicitud.estado.value,
             solicitud.fecha_ingreso.isoformat(),
             solicitud.fecha_maxima_respuesta.isoformat(),
         )
