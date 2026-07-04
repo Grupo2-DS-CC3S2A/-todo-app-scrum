@@ -39,3 +39,13 @@ jobs:
             --allow-unauthenticated \
             --project ${{ env.PROJECT_ID }} \
             --set-env-vars "^##^CORS_ORIGINS=${{ secrets.CORS_ORIGINS }}##SECRET_KEY_JWT=${{ secrets.SECRET_KEY_JWT }}##SUPABASE_URL=${{ secrets.SUPABASE_URL }}##SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
+      - name: Configurar Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # Vincular y subir las migraciones automáticas al repositorio remoto supabase
+      - name: Ejecutar Migraciones en Supabase
+        run: |
+          supabase db link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }} --password ${{ secrets.SUPABASE_DB_PASSWORD }}
+          supabase db push
