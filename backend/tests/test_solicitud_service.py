@@ -6,8 +6,18 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
-from src.excepciones.errors import SolicitudDuplicadaError, SolicitudNoEncontradaError
-from src.modelos.solicitud import Dependencia, DerivacionInput, EstadoSolicitud, Solicitud
+from src.excepciones.errors import (
+    DocumentoInvalidoError,
+    SolicitudDuplicadaError,
+    SolicitudNoEncontradaError,
+)
+from src.modelos.solicitud import (
+    Dependencia,
+    DerivacionInput,
+    EstadoSolicitud,
+    Solicitud,
+)
+from src.modelos.tipo_persona import TipoPersona
 from src.repositorios.solicitud_repo import RepositorioSolicitudEnMemoria
 from src.servicios.solicitud_service import (
     DIAS_HABILES_RESPUESTA,
@@ -16,14 +26,26 @@ from src.servicios.solicitud_service import (
 )
 
 
-def _payload(**kwargs) -> DerivacionInput:
-    defaults = {
-        "usuario_id": "usr-001",
-        "detalle_solicitud": "Solicitud de prueba con suficiente detalle",
-        "dependencia_asignada": Dependencia.MESA_DE_PARTES,
-    }
-    defaults.update(kwargs)
-    return DerivacionInput(**defaults)
+def _payload(
+    usuario_id: str = "usr-001",
+    detalle_solicitud: str = "Solicitud de prueba con suficiente detalle",
+    dependencia_asignada: Dependencia = Dependencia.MESA_DE_PARTES,
+    tipo_persona: TipoPersona = TipoPersona.NATURAL,
+    numero_documento: str | None = None,
+    observaciones: str = "",
+) -> DerivacionInput:
+    if numero_documento is None:
+        numero_documento = (
+            "40392536" if tipo_persona == TipoPersona.NATURAL else "20123456789"
+        )
+    return DerivacionInput(
+        usuario_id=usuario_id,
+        detalle_solicitud=detalle_solicitud,
+        dependencia_asignada=dependencia_asignada,
+        tipo_persona=tipo_persona,
+        numero_documento=numero_documento,
+        observaciones=observaciones,
+    )
 
 
 class TestSumarDiasHabiles:
@@ -49,13 +71,57 @@ class TestSumarDiasHabiles:
 
 
 class TestSolicitudService:
-    def test_derivar_crea_solicitud_pendiente(self, solicitud_service: SolicitudService):
+    def test_derivar_crea_solicitud_pendiente(
+        self, solicitud_service: SolicitudService
+    ):
         s = solicitud_service.derivar(_payload())
         assert s.estado == EstadoSolicitud.PENDIENTE
 
-    def test_derivar_asigna_dependencia_correcta(self, solicitud_service: SolicitudService):
-        s = solicitud_service.derivar(_payload(dependencia_asignada=Dependencia.ASESORIA_LEGAL))
+    def test_derivar_asigna_dependencia_correcta(
+        self, solicitud_service: SolicitudService
+    ):
+        s = solicitud_service.derivar(
+            _payload(dependencia_asignada=Dependencia.ASESORIA_LEGAL)
+        )
         assert s.dependencia_asignada == Dependencia.ASESORIA_LEGAL
+
+    def test_derivar_propaga_tipo_persona_natural(
+        self, solicitud_service: SolicitudService
+    ):
+        s = solicitud_service.derivar(_payload(tipo_persona=TipoPersona.NATURAL))
+        assert s.tipo_persona == TipoPersona.NATURAL
+
+    def test_derivar_propaga_tipo_persona_juridica(
+        self, solicitud_service: SolicitudService
+    ):
+        s = solicitud_service.derivar(_payload(tipo_persona=TipoPersona.JURIDICA))
+        assert s.tipo_persona == TipoPersona.JURIDICA
+
+    def test_derivar_persona_natural_con_dni_invalido_no_persiste(
+        self, solicitud_service: SolicitudService
+    ):
+        """MDP-15 CA: sin dni valido, la solicitud se rechaza antes de guardarse."""
+        with pytest.raises(DocumentoInvalidoError):
+            solicitud_service.derivar(
+                _payload(
+                    tipo_persona=TipoPersona.NATURAL,
+                    numero_documento="123",
+                )
+            )
+        assert solicitud_service.listar() == []
+
+    def test_derivar_persona_juridica_con_ruc_invalido_no_persiste(
+        self, solicitud_service: SolicitudService
+    ):
+        """MDP-15 CA: sin ruc valido, la solicitud se rechaza antes de guardarse."""
+        with pytest.raises(DocumentoInvalidoError):
+            solicitud_service.derivar(
+                _payload(
+                    tipo_persona=TipoPersona.JURIDICA,
+                    numero_documento="12345",
+                )
+            )
+        assert solicitud_service.listar() == []
 
     def test_derivar_calcula_fecha_maxima_30_dias_habiles(
         self, solicitud_service: SolicitudService
@@ -80,7 +146,9 @@ class TestSolicitudService:
         with pytest.raises(SolicitudNoEncontradaError):
             solicitud_service.obtener("id-que-no-existe")
 
-    def test_listar_refleja_todas_las_solicitudes(self, solicitud_service: SolicitudService):
+    def test_listar_refleja_todas_las_solicitudes(
+        self, solicitud_service: SolicitudService
+    ):
         solicitud_service.derivar(_payload())
         solicitud_service.derivar(_payload())
         assert len(solicitud_service.listar()) == 2
@@ -90,11 +158,13 @@ class TestRepositorioSolicitudEnMemoria:
     def _solicitud_valida(self) -> Solicitud:
         ahora = datetime.now(tz=timezone.utc)
         return Solicitud(
+            id="u1",
             usuario_id="usr-test",
             detalle_solicitud="Detalle válido suficiente para el test",
             dependencia_asignada=Dependencia.LOGISTICA,
             fecha_ingreso=ahora,
             fecha_maxima_respuesta=ahora + timedelta(days=45),
+            estado=EstadoSolicitud.RECHAZADA,
         )
 
     def test_guardar_y_obtener(self):
@@ -165,7 +235,7 @@ class TestRepositorioSolicitudEnMemoria:
         )
         repo.guardar(s)
         assert len(repo.listar_por_estado(EstadoSolicitud.PENDIENTE)) == 1
-        assert len(repo.listar_por_estado(EstadoSolicitud.ATENDIDA)) == 0
+        assert len(repo.listar_por_estado(EstadoSolicitud.RESPONDIDA)) == 0
 
     def test_listar_todas(self):
         repo = RepositorioSolicitudEnMemoria()

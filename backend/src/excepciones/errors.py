@@ -20,12 +20,6 @@ class DominioVotacionError(Exception):
         self.mensaje: str = mensaje
 
 
-class VotoDuplicadoError(DominioVotacionError):
-    """Se intento registrar un voto cuyo hash ya existe."""
-
-    http_status: int = status.HTTP_409_CONFLICT
-
-
 class SolicitudNoEncontradaError(DominioVotacionError):
     """La solicitud referenciada no existe."""
 
@@ -78,6 +72,12 @@ class UsuarioNoEncontradoError(DominioVotacionError):
     """No existe usuario con el identificador dado."""
 
     http_status: int = status.HTTP_404_NOT_FOUND
+
+
+class DocumentoInvalidoError(DominioVotacionError):
+    """El numero de documento no cumple el formato del tipo_persona (MDP-15)."""
+
+    http_status: int = status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def register_exception_handlers(app: FastAPI) -> None:

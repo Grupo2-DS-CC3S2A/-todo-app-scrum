@@ -98,7 +98,7 @@ export function useDerivacion(): UseDerivacionResult {
           ...prev,
           enviandoDerivacion: false,
           ultimaDerivada: derivada,
-          solicitudes: prev.solicitudes.filter((s) => s.id !== derivada.id),
+          solicitudes: prev.solicitudes.filter((s, _index, _array) => s.id !== derivada.id),
         }));
         return derivada;
       } catch (err) {

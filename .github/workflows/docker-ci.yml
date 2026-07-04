@@ -1,0 +1,54 @@
+name: Deploy Backend to Cloud Run
+
+on:
+  push:
+    branches:
+      - feature/MDP-41-despliegue-de-backend
+      - developer
+
+env:
+  PROJECT_ID: 'mesa-de-partes-501300' # Arreglado: espacio final eliminado
+  REGION: 'us-central1'
+  SERVICE_NAME: 'todo-app-backend'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      # Autenticarse con Google Cloud usando el secreto
+      - name: Autenticación en Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+      # Configurar el SDK de Google Cloud
+      - name: Configurar Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # Enviar el código directamente a Cloud Build y Cloud Run inyectando los Secrets de GitHub
+      - name: Construir y Desplegar en Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --source ./backend \
+            --region ${{ env.REGION }} \
+            --port 8000 \
+            --allow-unauthenticated \
+            --project ${{ env.PROJECT_ID }} \
+            --set-env-vars "^##^CORS_ORIGINS=${{ secrets.CORS_ORIGINS }}##SECRET_KEY_JWT=${{ secrets.SECRET_KEY_JWT }}##SUPABASE_URL=${{ secrets.SUPABASE_URL }}##SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
+      - name: Configurar Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # Sincronizar y subir las migraciones corregidas mapeando el TOKEN
+      - name: Ejecutar Migraciones en Supabase
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" --password "${{ secrets.SUPABASE_DB_PASSWORD }}"
+          supabase migration repair --status reverted 20260628230000
+          supabase db push

@@ -1,10 +1,8 @@
 /**
- * Panel del administrador para derivar solicitudes entrantes (HU04).
- *
- * Solo se ocupa de la presentacion: el ciclo asincrono vive en
- * ``useDerivacion`` y la notificacion de exito/error se delega al
- * ``toaster`` global. Los calculos puros (fecha maxima, formato) se
- * extraen como helpers para mantener el componente declarativo.
+ * Panel del administrador para derivar solicitudes entrantes.
+ * Se ocupa de la presentacion: el ciclo asincrono vive en
+ * ``useDerivacion`` y la notificación de exito/error se delega a
+ * ``toaster`` global.
  */
 
 import {
@@ -28,13 +26,19 @@ import {
 } from "@chakra-ui/react";
 
 import { toaster } from "@/components/ui/toaster";
+import { TipoPersonaSelector } from "@/components/TipoPersonaSelector";
+import { sugerirDependencia } from "@/api/derivacionApi";
+import { useAuth } from "@/hooks/useAuth";
 import { useDerivacion } from "@/hooks/useDerivacion";
+import { ApiError } from "@/types/voting";
 import {
   CATALOGO_DEPENDENCIAS,
   Dependencia,
   type DependenciaCatalogoItem,
   type Solicitud,
+  type SugerenciaDependenciaResponse,
 } from "@/types/derivacion";
+import { CATALOGO_TIPO_PERSONA, TipoPersona } from "@/types/tipoPersona";
 
 const SIN_SELECCION = "" as const;
 
@@ -69,6 +73,7 @@ function buscarDependencia(
 }
 
 export function AdminDerivacionPanel(): ReactElement {
+  const { sesion } = useAuth();
   const {
     solicitudes,
     cargandoListado,
@@ -83,11 +88,23 @@ export function AdminDerivacionPanel(): ReactElement {
   const [idSolicitud, setIdSolicitud] = useState<string>(SIN_SELECCION);
   const [codigoDependencia, setCodigoDependencia] =
     useState<string>(SIN_SELECCION);
+  const [tipoPersona, setTipoPersona] = useState<TipoPersona>(
+    TipoPersona.NATURAL,
+  );
+  const [numeroDocumento, setNumeroDocumento] = useState<string>("");
   const [observaciones, setObservaciones] = useState<string>("");
+  const [sugerencia, setSugerencia] =
+    useState<SugerenciaDependenciaResponse | null>(null);
+  const [cargandoSugerencia, setCargandoSugerencia] = useState(false);
 
   const dependenciaSeleccionada = useMemo(
     () => buscarDependencia(codigoDependencia),
     [codigoDependencia],
+  );
+
+  const solicitudSeleccionada = useMemo(
+    () => solicitudes.find((s) => String(s.id) === idSolicitud),
+    [solicitudes, idSolicitud],
   );
 
   const fechaMaximaPreview = useMemo(() => {
@@ -124,9 +141,57 @@ export function AdminDerivacionPanel(): ReactElement {
     });
     setIdSolicitud(SIN_SELECCION);
     setCodigoDependencia(SIN_SELECCION);
+    setTipoPersona(TipoPersona.NATURAL);
+    setNumeroDocumento("");
     setObservaciones("");
+    setSugerencia(null);
     limpiarUltima();
   }, [ultimaDerivada, limpiarUltima]);
+
+  // La sugerencia queda obsoleta si cambia la solicitud o el tipo de persona.
+  useEffect(() => {
+    setSugerencia(null);
+  }, [idSolicitud, tipoPersona]);
+
+  const handleSugerirDependencia = async (): Promise<void> => {
+    if (!sesion) return;
+    if (!solicitudSeleccionada) {
+      toaster.create({
+        type: "warning",
+        title: "Datos invalidos",
+        description: "Selecciona una solicitud entrante para sugerir dependencia.",
+      });
+      return;
+    }
+    setCargandoSugerencia(true);
+    try {
+      const resultado = await sugerirDependencia(
+        {
+          tipo_persona: tipoPersona,
+          detalle_solicitud: solicitudSeleccionada.descripcion,
+        },
+        sesion.token,
+      );
+      setSugerencia(resultado);
+    } catch (err) {
+      const error =
+        err instanceof ApiError
+          ? err
+          : new ApiError(0, "Error inesperado al pedir la sugerencia.");
+      toaster.create({
+        type: "error",
+        title: "No se pudo obtener la sugerencia",
+        description: error.message,
+      });
+    } finally {
+      setCargandoSugerencia(false);
+    }
+  };
+
+  const usarSugerencia = (): void => {
+    if (!sugerencia) return;
+    setCodigoDependencia(sugerencia.dependencia);
+  };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
@@ -147,8 +212,24 @@ export function AdminDerivacionPanel(): ReactElement {
       });
       return;
     }
+    const catalogoTipoPersona = CATALOGO_TIPO_PERSONA.find(
+      (t) => t.codigo === tipoPersona,
+    );
+    if (
+      !catalogoTipoPersona ||
+      !catalogoTipoPersona.documentoPattern.test(numeroDocumento)
+    ) {
+      toaster.create({
+        type: "warning",
+        title: "Datos invalidos",
+        description: `Ingresa un ${catalogoTipoPersona?.documentoLabel ?? "documento"} valido (${catalogoTipoPersona?.documentoLongitud ?? "?"} dígitos).`,
+      });
+      return;
+    }
     void derivar(id, {
       dependencia: dependenciaSeleccionada.codigo as Dependencia,
+      tipo_persona: tipoPersona,
+      numero_documento: numeroDocumento,
       observaciones: observaciones.trim(),
     });
   };
@@ -164,6 +245,16 @@ export function AdminDerivacionPanel(): ReactElement {
             Estado destino: Pendiente
           </Badge>
         </HStack>
+
+        <TipoPersonaSelector
+          value={tipoPersona}
+          onChange={(nuevoTipo) => {
+            setTipoPersona(nuevoTipo);
+            setNumeroDocumento("");
+          }}
+          numeroDocumento={numeroDocumento}
+          onNumeroDocumentoChange={setNumeroDocumento}
+        />
 
         <form onSubmit={handleSubmit} noValidate>
           <Stack gap={4}>
@@ -189,6 +280,44 @@ export function AdminDerivacionPanel(): ReactElement {
                 </NativeSelect.Field>
                 <NativeSelect.Indicator />
               </NativeSelect.Root>
+            </Box>
+
+            <Box bg="gray.900" borderWidth="1px" borderColor="gray.700" p={4} rounded="md">
+              <HStack justify="space-between" align="center" mb={sugerencia ? 2 : 0}>
+                <Text fontSize="sm" color="gray.400">
+                  Sugerencia de dependencia (MDP-10)
+                </Text>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  loading={cargandoSugerencia}
+                  loadingText="Calculando..."
+                  disabled={!solicitudSeleccionada}
+                  onClick={() => void handleSugerirDependencia()}
+                >
+                  Sugerir dependencia
+                </Button>
+              </HStack>
+              {sugerencia && (
+                <HStack justify="space-between" align="center">
+                  <Text fontSize="sm">
+                    {CATALOGO_DEPENDENCIAS.find(
+                      (d) => d.codigo === sugerencia.dependencia,
+                    )?.etiqueta ?? sugerencia.dependencia}{" "}
+                    — puntaje {sugerencia.puntaje.toFixed(2)}
+                  </Text>
+                  <Button
+                    type="button"
+                    size="xs"
+                    colorPalette="green"
+                    variant="subtle"
+                    onClick={usarSugerencia}
+                  >
+                    Usar esta sugerencia
+                  </Button>
+                </HStack>
+              )}
             </Box>
 
             <Box>

@@ -8,9 +8,9 @@ import { Heading, Stack, Text } from "@chakra-ui/react";
 export function Header(): ReactElement {
   return (
     <Stack gap={2}>
-      <Heading size="lg">Mesa de Partes Electronica</Heading>
+      <Heading size="lg">Mesa de Partes Virtual</Heading>
       <Text color="gray.300">
-        Emite tu voto de forma segura. Utilizamos cifrado SHA-256 y llaves
+        Utilizamos cifrado SHA-256 y llaves
         evolutivas para garantizar anonimato e inmutabilidad.
       </Text>
     </Stack>
