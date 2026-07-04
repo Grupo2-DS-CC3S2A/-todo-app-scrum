@@ -28,7 +28,7 @@ class Settings:
         default_factory=lambda: _split_csv(
             os.getenv(
                 "CORS_ORIGINS",
-                "http://localhost:5173,http://127.0.0.1:5173",
+                "https://mdp-frontend-71whgrgy0-mdp-2026-1.vercel.app/,http://localhost:5173,http://127.0.0.1:5173",
             )
         )
     )
