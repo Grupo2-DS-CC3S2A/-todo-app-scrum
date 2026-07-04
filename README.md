@@ -78,7 +78,7 @@ VotingSystem/
 | **Pydantic v2**          | Validación y serialización de datos                        |
 | **SHA-256** (stdlib)     | Cifrado del voto para garantizar anonimato                 |
 | **Algoritmos Genéticos** | Generación de llaves evolutivas dinámicas                  |
-| **pytest + pytest-cov**  | Suite de tests automatizados (75 tests, 97% cobertura)      |
+| **pytest + pytest-cov**  | Suite de tests automatizados (75 tests, 97% cobertura)     |
 
 ### Frontend
 
