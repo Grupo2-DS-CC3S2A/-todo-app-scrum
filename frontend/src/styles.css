@@ -525,3 +525,8 @@ th {
     white-space: normal;
   }
 }
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

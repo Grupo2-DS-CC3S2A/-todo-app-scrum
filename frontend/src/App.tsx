@@ -1,5 +1,6 @@
-import { useState, type FormEvent, type ReactElement } from "react";
+import { useEffect, useState, type FormEvent, type ReactElement } from "react";
 
+import { listarDependencias, type DependenciaDb } from "@/api/dependenciasApi";
 import { validarCiudadano } from "@/api/validationApi";
 import { ApiError } from "@/types/voting";
 import type { CiudadanoValidado } from "@/types/ciudadano";
@@ -53,7 +54,9 @@ export default function App(): ReactElement {
       setScreen("validation");
       return;
     }
+
     if (nextScreen === "registration") setRegistrationStep(1);
+
     setMessage(null);
     setScreen(nextScreen);
   };
@@ -86,9 +89,11 @@ export default function App(): ReactElement {
         </div>
       </nav>
 
-      <main className={"container"}>
+      <main className="container">
         {message && <div className={`app-message ${message.kind}`}>{message.text}</div>}
+
         {screen === "status" && <StatusScreen onContinue={() => showScreen("validation")} />}
+
         {screen === "validation" && (
           <ValidationScreen
             onBack={() => showScreen("status")}
@@ -101,16 +106,17 @@ export default function App(): ReactElement {
             onOpenTerms={() => setTermsOpen(true)}
           />
         )}
-        {screen === "dashboard" && (
-          <DashboardScreen userName={fullName(user)} onNavigate={showScreen} />
-        )}
+
+        {screen === "dashboard" && <DashboardScreen userName={fullName(user)} onNavigate={showScreen} />}
+
         {screen === "inbox" && <InboxScreen />}
+
         {screen === "registration" && (
           <RegistrationScreen
             step={registrationStep}
             setStep={setRegistrationStep}
             onRegistered={() => {
-              setMessage({ kind: "success", text: "Documento registrado con exito." });
+              setMessage({ kind: "success", text: "Documento listo para firma digital." });
               setScreen("dashboard");
             }}
           />
@@ -128,7 +134,6 @@ export default function App(): ReactElement {
       />
     </div>
   );
-
 }
 
 function ValidationScreen({
@@ -151,34 +156,42 @@ function ValidationScreen({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
+
     if (!dni || !digit || !date || !captcha) {
       onError("Complete todos los campos de validacion antes de continuar.");
       return;
     }
+
     if (!/^\d{8}$/.test(dni)) {
       onError("El DNI debe tener exactamente 8 digitos numericos.");
       return;
     }
+
     if (!/^\d$/.test(digit)) {
       onError("El digito de verificacion debe tener un solo numero.");
       return;
     }
+
     if (captcha.toLowerCase() !== CAPTCHA_CODE) {
       onError("El codigo CAPTCHA no coincide.");
       return;
     }
+
     if (!termsAccepted) {
       onError("Debe aceptar los terminos y condiciones antes de continuar.");
       return;
     }
 
     setLoading(true);
+
     try {
       const validatedUser = await validarCiudadano({ dni, digit, date });
+
       if (!validatedUser) {
         onError("Los datos no coinciden con la base de datos. Verifique DNI, digito o fecha.");
         return;
       }
+
       onValidated(validatedUser);
     } catch (err) {
       const text = err instanceof ApiError ? err.message : "No se pudo verificar en la base de datos.";
@@ -209,6 +222,7 @@ function ValidationScreen({
               onChange={(e) => setDni(e.target.value.replace(/\D/g, ""))}
             />
           </div>
+
           <div className="form-group">
             <label htmlFor="validation-digit">Digito de Verificacion</label>
             <input
@@ -221,10 +235,12 @@ function ValidationScreen({
               onChange={(e) => setDigit(e.target.value.replace(/\D/g, ""))}
             />
           </div>
+
           <div className="form-group">
             <label htmlFor="validation-date">Fecha de emision del DNI</label>
             <input id="validation-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
+
           <div className="form-group">
             <label htmlFor="captcha-input">Codigo CAPTCHA</label>
             <div className="flex-gap-10">
@@ -254,7 +270,6 @@ function ValidationScreen({
             </button>
           </label>
         </div>
-
 
         <div className="flex-end mt-20">
           <button type="button" className="btn btn-secondary" onClick={onBack}>
@@ -318,6 +333,7 @@ function DashboardScreen({
           <h3>Registro de Documento</h3>
           <p>Presente un nuevo tramite</p>
         </button>
+
         <button className="card" onClick={() => onNavigate("inbox")}>
           <div className="card-icon">📁</div>
           <h3>Mis Documentos</h3>
@@ -338,10 +354,12 @@ function InboxScreen(): ReactElement {
           <label htmlFor="filter-text">Filtro de documentos</label>
           <input id="filter-text" type="text" placeholder="Buscar por numero o asunto" />
         </div>
+
         <div className="form-group form-group-no-margin">
           <label htmlFor="date-from">Fecha Desde</label>
           <input id="date-from" type="date" />
         </div>
+
         <div className="form-group form-group-no-margin">
           <label htmlFor="date-to">Fecha Hasta</label>
           <input id="date-to" type="date" />
@@ -392,15 +410,65 @@ function RegistrationScreen({
   const [email, setEmail] = useState<string>("cesarlopezarteaga@gmail.com");
   const [mobile, setMobile] = useState<string>("931157261");
   const [documentType, setDocumentType] = useState<string>("CARTA");
-  const [subject, setSubject] = useState<string>("");
+  const [dependencias, setDependencias] = useState<readonly DependenciaDb[]>([]);
+  const [dependenciaId, setDependenciaId] = useState<string>("");
+  const [loadingDependencias, setLoadingDependencias] = useState<boolean>(false);
   const [fileName, setFileName] = useState<string>("");
 
+  const archivoPdfCargado = fileName.trim().length > 0;
+
+  useEffect(() => {
+    let active = true;
+
+    setLoadingDependencias(true);
+
+    listarDependencias()
+      .then((items) => {
+        if (!active) return;
+        setDependencias(items);
+      })
+      .catch(() => {
+        if (!active) return;
+        alert("No se pudieron cargar las dependencias desde Supabase.");
+      })
+      .finally(() => {
+        if (!active) return;
+        setLoadingDependencias(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const finishRegistration = (): void => {
-    if (!subject.trim()) {
-      alert("Ingrese el asunto del documento.");
+    if (!dependenciaId) {
+      alert("Seleccione la dependencia donde se dirige.");
       return;
     }
-    console.log("Documento registrado", { email, mobile, documentType, subject, fileName });
+
+    if (!archivoPdfCargado) {
+      alert("Debe cargar el Archivo Principal (PDF) antes de continuar.");
+      return;
+    }
+
+    const dependenciaSeleccionada = dependencias.find(
+      (dependencia) => String(dependencia.id) === dependenciaId,
+    );
+
+    if (!dependenciaSeleccionada) {
+      alert("La dependencia seleccionada no es valida.");
+      return;
+    }
+
+    console.log("Documento listo para firma digital", {
+      email,
+      mobile,
+      documentType,
+      dependencia: dependenciaSeleccionada,
+      fileName,
+    });
+
     onRegistered();
   };
 
@@ -413,7 +481,9 @@ function RegistrationScreen({
           <div className="step-number">1</div>
           <div className="step-label">Datos del Ciudadano</div>
         </div>
+
         <div className="step-connector" />
+
         <div className={`step ${step >= 2 ? "active" : ""}`}>
           <div className="step-number">2</div>
           <div className="step-label">Datos del Documento</div>
@@ -423,14 +493,27 @@ function RegistrationScreen({
       {step === 1 ? (
         <div>
           <h3>Datos del Ciudadano</h3>
+
           <div className="form-group">
             <label htmlFor="citizen-email">Correo Electronico</label>
-            <input id="citizen-email" type="text" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input
+              id="citizen-email"
+              type="text"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </div>
+
           <div className="form-group">
             <label htmlFor="citizen-mobile">Celular</label>
-            <input id="citizen-mobile" type="text" value={mobile} onChange={(e) => setMobile(e.target.value)} />
+            <input
+              id="citizen-mobile"
+              type="text"
+              value={mobile}
+              onChange={(e) => setMobile(e.target.value)}
+            />
           </div>
+
           <div className="flex-end mt-20">
             <button type="button" className="btn btn-primary" onClick={() => setStep(2)}>
               Siguiente
@@ -440,40 +523,88 @@ function RegistrationScreen({
       ) : (
         <div>
           <h3>Datos del Documento</h3>
+
           <div className="form-group">
             <label htmlFor="document-type">Tipo de Documento</label>
-            <select id="document-type" value={documentType} onChange={(e) => setDocumentType(e.target.value)}>
-              <option>CARTA</option>
-              <option>SOLICITUD</option>
-              <option>OFICIO</option>
+            <select
+              id="document-type"
+              value={documentType}
+              onChange={(e) => setDocumentType(e.target.value)}
+            >
+              <option value="CARTA">CARTA</option>
+              <option value="SOLICITUD">SOLICITUD</option>
+              <option value="OFICIO">OFICIO</option>
             </select>
           </div>
+
           <div className="form-group">
-            <label htmlFor="document-subject">Asunto del Documento</label>
-            <input
-              id="document-subject"
-              type="text"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="Ingrese el asunto"
-            />
+            <label htmlFor="document-dependency">Dependencia donde se dirige</label>
+            <select
+              id="document-dependency"
+              value={dependenciaId}
+              onChange={(e) => setDependenciaId(e.target.value)}
+              disabled={loadingDependencias}
+            >
+              <option value="" disabled>
+                {loadingDependencias ? "Cargando dependencias..." : "Seleccione una dependencia"}
+              </option>
+
+              {dependencias.map((dependencia) => (
+                <option key={dependencia.id} value={dependencia.id}>
+                  {dependencia.nombre}
+                </option>
+              ))}
+            </select>
           </div>
+
           <div className="form-group">
             <label htmlFor="document-file">Archivo Principal (PDF)</label>
             <input
               id="document-file"
               type="file"
               accept="application/pdf"
-              onChange={(e) => setFileName(e.target.files?.[0]?.name ?? "")}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+
+                if (!file) {
+                  setFileName("");
+                  return;
+                }
+
+                const esPdf =
+                  file.type === "application/pdf" ||
+                  file.name.toLowerCase().endsWith(".pdf");
+
+                if (!esPdf) {
+                  alert("Solo se permite cargar archivos PDF.");
+                  e.target.value = "";
+                  setFileName("");
+                  return;
+                }
+
+                setFileName(file.name);
+              }}
             />
             {fileName && <p className="field-help">Archivo seleccionado: {fileName}</p>}
           </div>
+
           <div className="flex-end mt-20">
             <button type="button" className="btn btn-secondary" onClick={() => setStep(1)}>
               Atras
             </button>
-            <button type="button" className="btn btn-primary" onClick={finishRegistration}>
-              Finalizar Registro
+
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={finishRegistration}
+              disabled={!archivoPdfCargado}
+              title={
+                archivoPdfCargado
+                  ? "Continuar con la firma digital del documento"
+                  : "Debe cargar un archivo PDF para continuar"
+              }
+            >
+              Firma digital de Documento
             </button>
           </div>
         </div>
@@ -492,6 +623,7 @@ function TermsModal({
   readonly onClose: () => void;
 }): ReactElement | null {
   if (!open) return null;
+
   return (
     <div className="modal active" role="dialog" aria-modal="true">
       <div className="modal-content">
@@ -501,6 +633,7 @@ function TermsModal({
             ×
           </button>
         </div>
+
         <div className="modal-body">
           <div className="terms-text">
             <p>
@@ -514,6 +647,7 @@ function TermsModal({
             </p>
           </div>
         </div>
+
         <div className="modal-footer">
           <button className="btn btn-secondary" type="button" onClick={onClose}>
             Cerrar
@@ -526,4 +660,3 @@ function TermsModal({
     </div>
   );
 }
-
