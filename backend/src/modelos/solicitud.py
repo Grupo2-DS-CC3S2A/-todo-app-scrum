@@ -33,6 +33,7 @@ class EstadoSolicitud(str, Enum):
     EN_PROCESO = "EnProceso"
     RESPONDIDA = "Respondida"
     RECHAZADA = "Rechazada"
+    RECHAZADA_LEGAL = "Rechazada legal"
 
 
 class Dependencia(str, Enum):

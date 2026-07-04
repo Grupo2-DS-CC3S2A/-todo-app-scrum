@@ -28,6 +28,11 @@ from src.repositorios.solicitud_repo import (
     RepositorioSolicitudSupabase,
     SolicitudRepository,
 )
+from src.servicios.cadena_aprobacion import (
+    ValidacionCiudadanoHandler,
+    AprobacionLegalHandler,
+    DerivacionDependenciaHandler,
+)
 
 logger = get_logger(__name__)
 
@@ -106,13 +111,30 @@ class SolicitudService:
             estado=EstadoSolicitud.PENDIENTE,
         )  # type: ignore
 
+        # Inicio de cadena de responsabilidades
+        validador_ciudadano = ValidacionCiudadanoHandler()
+        aprobador_legal = AprobacionLegalHandler()
+        derivador_dependencia = DerivacionDependenciaHandler()
+
+        # Secuencia: Ciudadano -> Legal -> Derivacion
+        validador_ciudadano.set_siguiente(aprobador_legal).set_siguiente(
+            derivador_dependencia
+        )
+
+        # Si la Asesoria Legal rechaza, el resultado es una copia
+        # de la solicitud con estado RECHAZADA_LEGAL en vez de la
+        # solicitud original; hay que persistir ese resultado.
+        solicitud = validador_ciudadano.manejar(solicitud)
+
+        # Persistencia correcta usando el repositorio inyectado
         self._repo.guardar(solicitud)
 
         logger.info(
-            "Solicitud derivada | id=%s | dependencia=%s | "
+            "Solicitud derivada | id=%s | dependencia=%s | estado=%s | "
             "fecha_ingreso=%s | fecha_maxima=%s",
             solicitud.id,
             solicitud.dependencia_asignada.value,
+            solicitud.estado.value,
             solicitud.fecha_ingreso.isoformat(),
             solicitud.fecha_maxima_respuesta.isoformat(),
         )
