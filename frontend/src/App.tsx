@@ -1,6 +1,12 @@
-import { useEffect, useState, type FormEvent, type ReactElement } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactElement } from "react";
 
 import { listarDependencias, type DependenciaDb } from "@/api/dependenciasApi";
+import {
+  buildSignedDownloadUrl,
+  buildVisibleDownloadUrl,
+  firmarDocumento,
+  type SignedDocumentResponse,
+} from "@/api/signatureApi";
 import { validarCiudadano } from "@/api/validationApi";
 import { ApiError } from "@/types/voting";
 import type { CiudadanoValidado } from "@/types/ciudadano";
@@ -115,9 +121,9 @@ export default function App(): ReactElement {
           <RegistrationScreen
             step={registrationStep}
             setStep={setRegistrationStep}
+            dni={user?.dni ?? ""}
             onRegistered={() => {
-              setMessage({ kind: "success", text: "Documento listo para firma digital." });
-              setScreen("dashboard");
+              setMessage(null);
             }}
           />
         )}
@@ -401,11 +407,13 @@ function InboxScreen(): ReactElement {
 function RegistrationScreen({
   step,
   setStep,
+  dni,
   onRegistered,
 }: {
   readonly step: 1 | 2;
   readonly setStep: (step: 1 | 2) => void;
-  readonly onRegistered: () => void;
+  readonly dni: string;
+  readonly onRegistered: (signedDocument: SignedDocumentResponse) => void;
 }): ReactElement {
   const [email, setEmail] = useState<string>("cesarlopezarteaga@gmail.com");
   const [mobile, setMobile] = useState<string>("931157261");
@@ -414,8 +422,12 @@ function RegistrationScreen({
   const [dependenciaId, setDependenciaId] = useState<string>("");
   const [loadingDependencias, setLoadingDependencias] = useState<boolean>(false);
   const [fileName, setFileName] = useState<string>("");
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [signing, setSigning] = useState<boolean>(false);
+  const [signedFeedback, setSignedFeedback] = useState<SignedDocumentResponse | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const archivoPdfCargado = fileName.trim().length > 0;
+  const archivoPdfCargado = documentFile !== null;
 
   useEffect(() => {
     let active = true;
@@ -441,13 +453,18 @@ function RegistrationScreen({
     };
   }, []);
 
-  const finishRegistration = (): void => {
+  const finishRegistration = async (): Promise<void> => {
+    if (!dni) {
+      alert("No se encontro el DNI del usuario validado.");
+      return;
+    }
+
     if (!dependenciaId) {
       alert("Seleccione la dependencia donde se dirige.");
       return;
     }
 
-    if (!archivoPdfCargado) {
+    if (!documentFile) {
       alert("Debe cargar el Archivo Principal (PDF) antes de continuar.");
       return;
     }
@@ -461,15 +478,46 @@ function RegistrationScreen({
       return;
     }
 
-    console.log("Documento listo para firma digital", {
-      email,
-      mobile,
-      documentType,
-      dependencia: dependenciaSeleccionada,
-      fileName,
-    });
+    setSigning(true);
+    setSignedFeedback(null);
 
-    onRegistered();
+    try {
+      const signedDocument = await firmarDocumento({
+        dni,
+        file: documentFile,
+        email,
+        dependenciaNombre: dependenciaSeleccionada.nombre,
+        documentType,
+      });
+
+      console.log("Documento firmado digitalmente", {
+        email,
+        mobile,
+        documentType,
+        dependencia: dependenciaSeleccionada,
+        fileName,
+        signedDocument,
+        contenedorUrl: buildSignedDownloadUrl(signedDocument.downloadSignedUrl),
+        pdfSelladoUrl: buildVisibleDownloadUrl(signedDocument.id),
+      });
+
+      setSignedFeedback(signedDocument);
+      setDocumentFile(null);
+      setFileName("");
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      onRegistered(signedDocument);
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "No se pudo firmar digitalmente el documento.";
+
+      alert(message);
+    } finally {
+      setSigning(false);
+    }
   };
 
   return (
@@ -529,7 +577,10 @@ function RegistrationScreen({
             <select
               id="document-type"
               value={documentType}
-              onChange={(e) => setDocumentType(e.target.value)}
+              onChange={(e) => {
+                setDocumentType(e.target.value);
+                setSignedFeedback(null);
+              }}
             >
               <option value="CARTA">CARTA</option>
               <option value="SOLICITUD">SOLICITUD</option>
@@ -542,8 +593,11 @@ function RegistrationScreen({
             <select
               id="document-dependency"
               value={dependenciaId}
-              onChange={(e) => setDependenciaId(e.target.value)}
-              disabled={loadingDependencias}
+              onChange={(e) => {
+                setDependenciaId(e.target.value);
+                setSignedFeedback(null);
+              }}
+              disabled={loadingDependencias || signing}
             >
               <option value="" disabled>
                 {loadingDependencias ? "Cargando dependencias..." : "Seleccione una dependencia"}
@@ -561,13 +615,17 @@ function RegistrationScreen({
             <label htmlFor="document-file">Archivo Principal (PDF)</label>
             <input
               id="document-file"
+              ref={fileInputRef}
               type="file"
               accept="application/pdf"
+              disabled={signing}
               onChange={(e) => {
                 const file = e.target.files?.[0];
 
                 if (!file) {
+                  setDocumentFile(null);
                   setFileName("");
+                  setSignedFeedback(null);
                   return;
                 }
 
@@ -578,35 +636,65 @@ function RegistrationScreen({
                 if (!esPdf) {
                   alert("Solo se permite cargar archivos PDF.");
                   e.target.value = "";
+                  setDocumentFile(null);
                   setFileName("");
+                  setSignedFeedback(null);
                   return;
                 }
 
+                setDocumentFile(file);
                 setFileName(file.name);
+                setSignedFeedback(null);
               }}
             />
             {fileName && <p className="field-help">Archivo seleccionado: {fileName}</p>}
           </div>
 
           <div className="flex-end mt-20">
-            <button type="button" className="btn btn-secondary" onClick={() => setStep(1)}>
+            <button type="button" className="btn btn-secondary" onClick={() => setStep(1)} disabled={signing}>
               Atras
             </button>
 
             <button
               type="button"
               className="btn btn-primary"
-              onClick={finishRegistration}
-              disabled={!archivoPdfCargado}
+              onClick={() => void finishRegistration()}
+              disabled={!archivoPdfCargado || signing}
               title={
                 archivoPdfCargado
-                  ? "Continuar con la firma digital del documento"
+                  ? "Firmar digitalmente el documento"
                   : "Debe cargar un archivo PDF para continuar"
               }
             >
-              Firma digital de Documento
+              {signing ? "Firmando..." : "Firma digital de Documento"}
             </button>
           </div>
+
+          {signedFeedback && (
+            <div className="signature-result">
+              <strong>Documento firmado correctamente.</strong>
+              <div className="signature-result-code">Hash: {signedFeedback.hashHex}</div>
+              <div className="signature-download-links">
+                <a
+                  href={buildSignedDownloadUrl(signedFeedback.downloadSignedUrl)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Descargar contenedor .uni-signed
+                </a>
+                <a
+                  href={buildVisibleDownloadUrl(signedFeedback.id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Descargar PDF con sello de firma
+                </a>
+              </div>
+              <p className="field-help">
+                El archivo PDF se limpió del formulario. El correo se enviará desde el microservicio Java si el SMTP está configurado.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </section>
