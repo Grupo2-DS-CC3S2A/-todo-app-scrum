@@ -7,7 +7,7 @@ on:
       - developer
 
 env:
-  PROJECT_ID: 'mesa-de-partes-501300' # Arreglado: espacio final eliminado
+  PROJECT_ID: 'mesa-de-partes-501300'
   REGION: 'us-central1'
   SERVICE_NAME: 'todo-app-backend'
 
@@ -17,17 +17,17 @@ jobs:
 
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # Autenticarse con Google Cloud usando el secreto
       - name: Autenticación en Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
       # Configurar el SDK de Google Cloud
       - name: Configurar Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       # Enviar el código directamente a Cloud Build y Cloud Run inyectando los Secrets de GitHub
       - name: Construir y Desplegar en Cloud Run
@@ -39,12 +39,14 @@ jobs:
             --allow-unauthenticated \
             --project ${{ env.PROJECT_ID }} \
             --set-env-vars "^##^CORS_ORIGINS=${{ secrets.CORS_ORIGINS }}##SECRET_KEY_JWT=${{ secrets.SECRET_KEY_JWT }}##SUPABASE_URL=${{ secrets.SUPABASE_URL }}##SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
-      - name: Configurar Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
+            
+      - name: Instalar Supabase CLI de forma nativa
+        run: |
+          # Descarga e instala la última versión de producción
+          curl -fsSL https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.tar.gz | tar -xzf - -C /usr/local/bin
+          supabase --version
 
-      # Sincronizar y subir las migraciones corregidas mapeando el TOKEN
+      # Sincronizar y subir las migraciones
       - name: Ejecutar Migraciones en Supabase
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
