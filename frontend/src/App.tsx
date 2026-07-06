@@ -7,6 +7,12 @@ import {
   firmarDocumento,
   type SignedDocumentResponse,
 } from "@/api/signatureApi";
+import {
+  buscarTramites,
+  registrarTramite,
+  type TipoDocumento,
+  type TramiteDb,
+} from "@/api/tramitesApi";
 import { validarCiudadano } from "@/api/validationApi";
 import { ApiError } from "@/types/voting";
 import type { CiudadanoValidado } from "@/types/ciudadano";
@@ -21,22 +27,7 @@ interface AppMessage {
 
 const CAPTCHA_CODE = "r8nm6";
 
-const DOCUMENTOS_DEMO = [
-  {
-    numero: "2024000123",
-    tipo: "SOLICITUD",
-    asunto: "RECTIFICACION DE DATOS",
-    estado: "EN TRAMITE",
-    fecha: "22/03/2026",
-  },
-  {
-    numero: "2024000098",
-    tipo: "CARTA",
-    asunto: "CONSULTA TECNICA",
-    estado: "FINALIZADO",
-    fecha: "15/03/2026",
-  },
-] as const;
+
 
 function fullName(user: CiudadanoValidado | null): string {
   if (!user) return "USUARIO NO VALIDADO";
@@ -115,7 +106,7 @@ export default function App(): ReactElement {
 
         {screen === "dashboard" && <DashboardScreen userName={fullName(user)} onNavigate={showScreen} />}
 
-        {screen === "inbox" && <InboxScreen />}
+        {screen === "inbox" && <InboxScreen dni={user?.dni ?? ""} />}
 
         {screen === "registration" && (
           <RegistrationScreen
@@ -123,7 +114,10 @@ export default function App(): ReactElement {
             setStep={setRegistrationStep}
             dni={user?.dni ?? ""}
             onRegistered={() => {
-              setMessage(null);
+              setMessage({
+                kind: "success",
+                text: "Documento firmado y tramite registrado correctamente.",
+              });
             }}
           />
         )}
@@ -350,56 +344,171 @@ function DashboardScreen({
   );
 }
 
-function InboxScreen(): ReactElement {
+function todayIsoDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function formatDate(value: string): string {
+  if (!value) return "-";
+  const [year, month, day] = value.split("-");
+  if (!year || !month || !day) return value;
+  return `${day}/${month}/${year}`;
+}
+
+function InboxScreen({ dni }: { readonly dni: string }): ReactElement {
+  const [resultados, setResultados] = useState<readonly TramiteDb[]>([]);
+  const [tipoDocumento, setTipoDocumento] = useState<TipoDocumento>("CARTA");
+  const [fechaDesde, setFechaDesde] = useState<string>(todayIsoDate());
+  const [fechaHasta, setFechaHasta] = useState<string>(todayIsoDate());
+  const [consultando, setConsultando] = useState<boolean>(false);
+  const [inboxMessage, setInboxMessage] = useState<AppMessage | null>(null);
+
+
+  const consultarDocumentos = async (): Promise<void> => {
+    setInboxMessage(null);
+    setResultados([]);
+
+    if (!dni) {
+      setInboxMessage({
+        kind: "error",
+        text: "No se encontro el DNI del usuario logeado.",
+      });
+      return;
+    }
+
+    if (!fechaDesde || !fechaHasta) {
+      setInboxMessage({
+        kind: "warning",
+        text: "Debe seleccionar Fecha Desde y Fecha Hasta.",
+      });
+      return;
+    }
+
+    if (fechaHasta < fechaDesde) {
+      setInboxMessage({
+        kind: "warning",
+        text: "La Fecha Hasta debe ser mayor o igual a la Fecha Desde.",
+      });
+      return;
+    }
+
+    setConsultando(true);
+
+    try {
+      const data = await buscarTramites({
+        dni,
+        tipo_documento: tipoDocumento,
+        fecha_desde: fechaDesde,
+        fecha_hasta: fechaHasta,
+      });
+
+      setResultados(data);
+
+      if (data.length === 0) {
+        setInboxMessage({
+          kind: "info",
+          text: "No se encontraron documentos tramitados con los filtros seleccionados.",
+        });
+      }
+    } catch (err) {
+      const text =
+        err instanceof Error
+          ? err.message
+          : "No se pudo consultar la base de datos.";
+
+      setInboxMessage({
+        kind: "error",
+        text,
+      });
+    } finally {
+      setConsultando(false);
+    }
+  };
+
   return (
     <section className="screen-block">
       <h2>Bandeja de mis documentos tramitados</h2>
 
+      {inboxMessage && (
+        <div className={`app-message ${inboxMessage.kind}`}>{inboxMessage.text}</div>
+      )}
+
+
       <div className="inbox-filters">
         <div className="form-group form-group-no-margin">
-          <label htmlFor="filter-text">Filtro de documentos</label>
-          <input id="filter-text" type="text" placeholder="Buscar por numero o asunto" />
+          <label htmlFor="filter-document-type">Filtro del documento</label>
+          <select
+            id="filter-document-type"
+            value={tipoDocumento}
+            onChange={(e) => setTipoDocumento(e.target.value as TipoDocumento)}
+          >
+            <option value="CARTA">CARTA</option>
+            <option value="SOLICITUD">SOLICITUD</option>
+            <option value="OFICIO">OFICIO</option>
+          </select>
         </div>
 
         <div className="form-group form-group-no-margin">
           <label htmlFor="date-from">Fecha Desde</label>
-          <input id="date-from" type="date" />
+          <input
+            id="date-from"
+            type="date"
+            value={fechaDesde}
+            onChange={(e) => setFechaDesde(e.target.value)}
+          />
         </div>
 
         <div className="form-group form-group-no-margin">
           <label htmlFor="date-to">Fecha Hasta</label>
-          <input id="date-to" type="date" />
+          <input
+            id="date-to"
+            type="date"
+            value={fechaHasta}
+            min={fechaDesde}
+            onChange={(e) => setFechaHasta(e.target.value)}
+          />
         </div>
       </div>
 
       <div className="flex-end mt-20">
-        <button className="btn btn-accent" type="button">
-          Consultar 🔍
+        <button
+          className="btn btn-accent"
+          type="button"
+          disabled={consultando}
+          onClick={() => void consultarDocumentos()}
+        >
+          {consultando ? "Consultando..." : "Consultar 🔍"}
         </button>
       </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Nro de Documento</th>
-            <th>Tipo Documento</th>
-            <th>Asunto</th>
-            <th>Estado</th>
-            <th>Fecha</th>
-          </tr>
-        </thead>
-        <tbody>
-          {DOCUMENTOS_DEMO.map((doc) => (
-            <tr key={doc.numero}>
-              <td>{doc.numero}</td>
-              <td>{doc.tipo}</td>
-              <td>{doc.asunto}</td>
-              <td>{doc.estado}</td>
-              <td>{doc.fecha}</td>
+      <h3>Busqueda de documentos tramitados</h3>
+
+      {resultados.length === 0 ? (
+        <p className="field-help">Realice una consulta para visualizar documentos tramitados.</p>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>Nro de Documento</th>
+              <th>Tipo de documento</th>
+              <th>Dependencia</th>
+              <th>Estado documento</th>
+              <th>Fecha de respuesta</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {resultados.map((doc) => (
+              <tr key={doc.id}>
+                <td>{doc.nro_documento}</td>
+                <td>{doc.tipo_documento}</td>
+                <td>{doc.dependencia}</td>
+                <td>{doc.estado_documento}</td>
+                <td>{formatDate(doc.fecha_respuesta)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </section>
   );
 }
@@ -417,7 +526,7 @@ function RegistrationScreen({
 }): ReactElement {
   const [email, setEmail] = useState<string>("cesarlopezarteaga@gmail.com");
   const [mobile, setMobile] = useState<string>("931157261");
-  const [documentType, setDocumentType] = useState<string>("CARTA");
+  const [documentType, setDocumentType] = useState<TipoDocumento>("CARTA");
   const [dependencias, setDependencias] = useState<readonly DependenciaDb[]>([]);
   const [dependenciaId, setDependenciaId] = useState<string>("");
   const [loadingDependencias, setLoadingDependencias] = useState<boolean>(false);
@@ -490,6 +599,15 @@ function RegistrationScreen({
         documentType,
       });
 
+      const contenedorUrl = buildSignedDownloadUrl(signedDocument.downloadSignedUrl);
+
+      await registrarTramite({
+        dni,
+        tipo_documento: documentType,
+        dependencia: dependenciaSeleccionada.nombre,
+        contenedor: contenedorUrl,
+      });
+
       console.log("Documento firmado digitalmente", {
         email,
         mobile,
@@ -497,7 +615,7 @@ function RegistrationScreen({
         dependencia: dependenciaSeleccionada,
         fileName,
         signedDocument,
-        contenedorUrl: buildSignedDownloadUrl(signedDocument.downloadSignedUrl),
+        contenedorUrl,
         pdfSelladoUrl: buildVisibleDownloadUrl(signedDocument.id),
       });
 
@@ -578,7 +696,7 @@ function RegistrationScreen({
               id="document-type"
               value={documentType}
               onChange={(e) => {
-                setDocumentType(e.target.value);
+                setDocumentType(e.target.value as TipoDocumento);
                 setSignedFeedback(null);
               }}
             >
