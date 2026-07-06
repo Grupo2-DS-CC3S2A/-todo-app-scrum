@@ -25,10 +25,11 @@ from src.modelos.solicitud import (
 )
 from src.repositorios.solicitud_repo import (
     RepositorioSolicitudEnMemoria,
-    RepositorioSolicitudSupabase,
     SolicitudRepository,
+    get_solicitud_repository,
 )
 from src.servicios.cadena_aprobacion import (
+    ManejadorAprobacion,
     ValidacionCiudadanoHandler,
     AprobacionLegalHandler,
     DerivacionDependenciaHandler,
@@ -57,6 +58,22 @@ def sumar_dias_habiles(inicio: date, dias: int) -> date:
         if cursor.weekday() not in WEEKEND:
             restantes -= 1
     return cursor
+
+
+def _construir_cadena_aprobacion() -> ManejadorAprobacion:
+    """Arma la cadena de aprobacion (MDP-07) y devuelve el primer eslabon.
+
+    Secuencia: validacion del ciudadano -> aprobacion legal -> derivacion
+    a dependencia. Construirla en un solo lugar evita que ``derivar()``
+    conozca los eslabones concretos y su orden.
+    """
+    validador_ciudadano = ValidacionCiudadanoHandler()
+    aprobador_legal = AprobacionLegalHandler()
+    derivador_dependencia = DerivacionDependenciaHandler()
+    validador_ciudadano.set_siguiente(aprobador_legal).set_siguiente(
+        derivador_dependencia
+    )
+    return validador_ciudadano
 
 
 def _calcular_fecha_maxima(ahora: datetime) -> datetime:
@@ -111,20 +128,10 @@ class SolicitudService:
             estado=EstadoSolicitud.PENDIENTE,
         )  # type: ignore
 
-        # Inicio de cadena de responsabilidades
-        validador_ciudadano = ValidacionCiudadanoHandler()
-        aprobador_legal = AprobacionLegalHandler()
-        derivador_dependencia = DerivacionDependenciaHandler()
-
-        # Secuencia: Ciudadano -> Legal -> Derivacion
-        validador_ciudadano.set_siguiente(aprobador_legal).set_siguiente(
-            derivador_dependencia
-        )
-
         # Si la Asesoria Legal rechaza, el resultado es una copia
         # de la solicitud con estado RECHAZADA_LEGAL en vez de la
         # solicitud original; hay que persistir ese resultado.
-        solicitud = validador_ciudadano.manejar(solicitud)
+        solicitud = _construir_cadena_aprobacion().manejar(solicitud)
 
         # Persistencia correcta usando el repositorio inyectado
         self._repo.guardar(solicitud)
@@ -151,8 +158,12 @@ class SolicitudService:
 
 @lru_cache(maxsize=1)
 def get_solicitud_service() -> SolicitudService:
-    """Provee la instancia singleton del servicio con persistencia Supabase."""
-    return SolicitudService(repo=RepositorioSolicitudSupabase())
+    """Provee la instancia singleton del servicio con persistencia Supabase.
+
+    El repositorio llega ya decorado con auditoria via
+    ``get_solicitud_repository()`` (Decorator compuesto en el borde).
+    """
+    return SolicitudService(repo=get_solicitud_repository())
 
 
 __all__ = [

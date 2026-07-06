@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
+
 from src.modelos.ciudadano import (
     ValidacionCiudadanoInput,
     ValidacionCiudadanoResponse,
@@ -10,7 +12,7 @@ from src.repositorios.ciudadano_repo import CiudadanoRepository
 
 
 class CiudadanoService:
-    """Orquesta la validacion de ingreso con ``validation.db``."""
+    """Orquesta la validacion de ingreso contra la tabla ``citizens``."""
 
     def __init__(self, repositorio: CiudadanoRepository) -> None:
         self._repositorio = repositorio
@@ -19,7 +21,7 @@ class CiudadanoService:
         self,
         payload: ValidacionCiudadanoInput,
     ) -> ValidacionCiudadanoResponse:
-        """Valida DNI, digito y fecha de emision contra SQLite."""
+        """Valida DNI, digito y fecha de emision contra Supabase."""
         ciudadano = self._repositorio.buscar_por_credenciales(
             dni=payload.dni,
             digit=payload.digit,
@@ -35,8 +37,13 @@ class CiudadanoService:
         )
 
 
+@lru_cache(maxsize=1)
 def get_ciudadano_service() -> CiudadanoService:
-    """Dependency provider para FastAPI."""
+    """Dependency provider para FastAPI (singleton).
+
+    Sin ``lru_cache`` cada request construia un cliente Supabase nuevo y
+    el Proxy de cache nacia vacio en cada llamada, anulando su efecto.
+    """
     from src.repositorios.ciudadano_repo import get_ciudadano_repository
 
     return CiudadanoService(get_ciudadano_repository())

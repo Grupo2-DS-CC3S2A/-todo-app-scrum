@@ -5,9 +5,15 @@ solicitud hacia una dependencia interna. La autenticacion/autorizacion
 real se delega a un proveedor central; aqui se modela como una
 ``Depends`` que valida el rol administrador y deja el endpoint listo
 para integrar JWT/OIDC sin tocar la logica de dominio.
+
+Las rutas dependen unicamente de ``MesaDePartesFacade`` (Facade): la
+coordinacion entre derivacion, sugerencia y notificacion vive detras de
+esa unica abstraccion, no aqui.
 """
 
 from __future__ import annotations
+
+import os
 
 from fastapi import APIRouter, Depends, Header, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -25,13 +31,9 @@ from src.modelos.sugerencia import (
 )
 from src.modelos.usuario import RolUsuario
 from src.servicios.auth_service import AuthService, get_auth_service
-from src.servicios.enrutamiento_service import (
-    SugerenciaDependenciaService,
-    get_sugerencia_dependencia_service,
-)
-from src.servicios.solicitud_service import (
-    SolicitudService,
-    get_solicitud_service,
+from src.servicios.mesa_de_partes_facade import (
+    MesaDePartesFacade,
+    get_mesa_de_partes_facade,
 )
 
 _bearer_scheme = HTTPBearer(auto_error=False)
@@ -59,8 +61,6 @@ async def verificar_admin(
        variable de entorno ``ADMIN_TOKEN``. Se mantiene por compatibilidad
        con tests y clientes existentes; se removera tras S2-06.
     """
-    import os
-
     if credentials is not None and credentials.credentials:
         try:
             payload = auth.decodificar_token(credentials.credentials)
@@ -102,7 +102,7 @@ def _a_respuesta(solicitud: Solicitud) -> SolicitudDerivada:
 )
 async def derivar_solicitud(
     payload: DerivacionInput,
-    servicio: SolicitudService = Depends(get_solicitud_service),
+    fachada: MesaDePartesFacade = Depends(get_mesa_de_partes_facade),
     _admin: str = Depends(verificar_admin),
 ) -> SolicitudDerivada:
     """Deriva la solicitud (HU04).
@@ -111,7 +111,7 @@ async def derivar_solicitud(
     ``fecha_maxima_respuesta`` (30 dias habiles) y deja la solicitud en
     estado ``Pendiente``.
     """
-    solicitud: Solicitud = servicio.derivar(payload)
+    solicitud: Solicitud = fachada.derivar(payload)
     return _a_respuesta(solicitud)
 
 
@@ -122,9 +122,7 @@ async def derivar_solicitud(
 )
 async def sugerir_dependencia(
     payload: SugerenciaDependenciaInput,
-    servicio: SugerenciaDependenciaService = Depends(
-        get_sugerencia_dependencia_service
-    ),
+    fachada: MesaDePartesFacade = Depends(get_mesa_de_partes_facade),
     _admin: str = Depends(verificar_admin),
 ) -> SugerenciaDependenciaResponse:
     """Sugiere dependencia y prioridad antes de derivar (Strategy, MDP-10).
@@ -132,7 +130,7 @@ async def sugerir_dependencia(
     El admin puede aceptar la sugerencia o sobreescribirla al derivar:
     este endpoint no persiste nada, solo calcula la recomendacion.
     """
-    sugerencia = servicio.sugerir(payload.tipo_persona, payload.detalle_solicitud)
+    sugerencia = fachada.sugerir(payload.tipo_persona, payload.detalle_solicitud)
     return SugerenciaDependenciaResponse(
         dependencia=sugerencia.dependencia,
         puntaje=sugerencia.puntaje,
@@ -146,11 +144,11 @@ async def sugerir_dependencia(
 )
 async def obtener_solicitud(
     solicitud_id: str,
-    servicio: SolicitudService = Depends(get_solicitud_service),
+    fachada: MesaDePartesFacade = Depends(get_mesa_de_partes_facade),
     _admin: str = Depends(verificar_admin),
 ) -> SolicitudDerivada:
     """Devuelve los datos de auditoria de una solicitud por id."""
-    solicitud: Solicitud = servicio.obtener(solicitud_id)
+    solicitud: Solicitud = fachada.obtener(solicitud_id)
     return _a_respuesta(solicitud)
 
 
@@ -160,8 +158,8 @@ async def obtener_solicitud(
     summary="Listar todas las solicitudes del sistema.",
 )
 async def listar_todas(
-    servicio: SolicitudService = Depends(get_solicitud_service),
+    fachada: MesaDePartesFacade = Depends(get_mesa_de_partes_facade),
     _admin: str = Depends(verificar_admin),
 ) -> list[Solicitud]:
     """Retorna el listado completo de solicitudes para auditoria o gestion admin."""
-    return servicio.listar()
+    return fachada.listar()

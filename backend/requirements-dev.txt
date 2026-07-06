@@ -11,4 +11,3 @@ mypy>=1.8.0
 # Pruebas y cobertura
 pytest>=8.0.0
 pytest-cov>=4.1.0
-httpx2

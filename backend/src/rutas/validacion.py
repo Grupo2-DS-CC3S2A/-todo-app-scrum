@@ -19,7 +19,7 @@ router: APIRouter = APIRouter(tags=["validacion-ciudadano"])
 @router.post(
     "/api/validate",
     response_model=ValidacionCiudadanoResponse,
-    summary="Valida DNI, digito y fecha de emision contra validation.db.",
+    summary="Valida DNI, digito y fecha de emision contra la tabla citizens.",
 )
 async def validar_ciudadano_api(
     payload: ValidacionCiudadanoInput,

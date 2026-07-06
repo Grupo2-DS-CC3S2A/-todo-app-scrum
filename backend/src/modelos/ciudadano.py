@@ -1,4 +1,4 @@
-"""Modelos Pydantic para validacion de ciudadano contra SQLite."""
+"""Modelos Pydantic para validacion de ciudadano (tabla ``citizens``)."""
 
 from __future__ import annotations
 

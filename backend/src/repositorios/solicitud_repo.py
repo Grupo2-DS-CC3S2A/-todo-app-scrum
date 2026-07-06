@@ -21,11 +21,8 @@ from src.excepciones.errors import (
     SolicitudDuplicadaError,
     SolicitudNoEncontradaError,
 )
-from src.logging_config import get_logger
 from src.modelos.solicitud import Dependencia, EstadoSolicitud, Solicitud
 from src.modelos.tipo_persona import TipoPersona
-
-logger = get_logger(__name__)
 
 
 class SolicitudRepository(ABC):
@@ -100,12 +97,6 @@ class RepositorioSolicitudEnMemoria(SolicitudRepository):
                     f"La solicitud '{solicitud.id}' ya existe."
                 )
             self._solicitudes[solicitud.id] = solicitud
-        logger.info(
-            "Solicitud persistida | id=%s | dependencia=%s | estado=%s",
-            solicitud.id,
-            solicitud.dependencia_asignada.value,
-            solicitud.estado.value,
-        )
         return solicitud
 
     def obtener_por_id(self, solicitud_id: str) -> Solicitud:
@@ -180,12 +171,6 @@ class RepositorioSolicitudSupabase(SolicitudRepository):
                     f"La solicitud '{solicitud.id}' ya existe."
                 ) from exc
             raise
-        logger.info(
-            "Solicitud persistida en Supabase | id=%s | dependencia=%s | estado=%s",
-            solicitud.id,
-            solicitud.dependencia_asignada.value,
-            solicitud.estado.value,
-        )
         return solicitud
 
     def obtener_por_id(self, solicitud_id: str) -> Solicitud:
@@ -269,5 +254,14 @@ class RepositorioSolicitudSupabase(SolicitudRepository):
 
 @lru_cache(maxsize=1)
 def get_solicitud_repository() -> SolicitudRepository:
-    """Provee la instancia singleton del repositorio con persistencia Supabase."""
-    return RepositorioSolicitudSupabase()
+    """Provee el repositorio Supabase envuelto en el Decorator de auditoria.
+
+    La composicion ocurre aqui, en el borde de la aplicacion: los
+    adaptadores no saben que estan auditados. Import diferido para evitar
+    el ciclo con ``solicitud_repo_auditoria`` (que importa este modulo).
+    """
+    from src.repositorios.solicitud_repo_auditoria import (
+        RepositorioSolicitudConAuditoria,
+    )
+
+    return RepositorioSolicitudConAuditoria(RepositorioSolicitudSupabase())
