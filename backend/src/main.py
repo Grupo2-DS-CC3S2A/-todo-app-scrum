@@ -43,6 +43,7 @@ def create_app() -> FastAPI:
     app.include_router(admin_solicitudes_router)
     app.include_router(dependencias_router)
     app.include_router(tramites_router)
+
     @app.get("/health", tags=["meta"], summary="Health check")
     async def healthcheck() -> dict[str, str]:
         """Verifica liveness y que la conexion a Supabase responda.

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any, cast
+
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 from supabase import Client, create_client
@@ -37,7 +39,9 @@ async def listar_dependencias() -> list[DependenciaResponse]:
             .execute()
         )
 
-        return [DependenciaResponse(**row) for row in response.data]
+        return [
+            DependenciaResponse(**cast(dict[str, Any], row)) for row in response.data
+        ]
 
     except Exception as exc:
         raise HTTPException(

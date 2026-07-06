@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -78,7 +79,7 @@ async def registrar_tramite(payload: TramiteCreateRequest) -> TramiteResponse:
                 detail="No se pudo registrar el trámite.",
             )
 
-        return TramiteResponse(**response.data[0])
+        return TramiteResponse(**cast(dict[str, Any], response.data[0]))
 
     except HTTPException:
         raise
@@ -104,7 +105,7 @@ async def listar_tramites_por_dni(dni: str) -> list[TramiteResponse]:
             .execute()
         )
 
-        return [TramiteResponse(**row) for row in response.data]
+        return [TramiteResponse(**cast(dict[str, Any], row)) for row in response.data]
 
     except Exception as exc:
         raise HTTPException(
@@ -150,7 +151,7 @@ async def buscar_tramites(
             .execute()
         )
 
-        return [TramiteResponse(**row) for row in response.data]
+        return [TramiteResponse(**cast(dict[str, Any], row)) for row in response.data]
 
     except HTTPException:
         raise

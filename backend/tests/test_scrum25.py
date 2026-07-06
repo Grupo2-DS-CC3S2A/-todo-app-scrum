@@ -1,14 +1,14 @@
 """Pruebas unitarias de login, tokens expirados y denegacion de accesos:
-  PASO 4  -> credenciales invalidas devuelven error legible
-  PASO 5  -> login exitoso emite JWT con claims correctos
-  PASO 8  -> endpoints admin exigen JWT valido con rol admin
-  PASO 10 -> token expirado devuelve 401 / 403 segun el endpoint
-  - Token sin claim ``sub``          
-  - Token con usuario eliminado      
-  - Token sin claim ``rol``          
-  - Hash malformado en verificacion  
-  - ``obtener_por_id`` inexistente 
-  - ``listar`` usuarios 
+PASO 4  -> credenciales invalidas devuelven error legible
+PASO 5  -> login exitoso emite JWT con claims correctos
+PASO 8  -> endpoints admin exigen JWT valido con rol admin
+PASO 10 -> token expirado devuelve 401 / 403 segun el endpoint
+- Token sin claim ``sub``
+- Token con usuario eliminado
+- Token sin claim ``rol``
+- Hash malformado en verificacion
+- ``obtener_por_id`` inexistente
+- ``listar`` usuarios
 """
 
 from __future__ import annotations

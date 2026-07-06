@@ -2,9 +2,9 @@ name: Backend CI
 
 on:
   push:
-    branches: ['main', 'developer']
+    branches: ['**']
   pull_request:
-    branches: ['main', 'developer']
+    branches: ['**']
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -46,7 +46,6 @@ jobs:
 
   docker-build:
     needs: build-and-test
-    if: github.ref == 'refs/heads/developer' && github.event_name == 'push'
     runs-on: ubuntu-latest
 
     steps:

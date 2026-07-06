@@ -1,4 +1,4 @@
-"""Test de integración: SolicitudService.derivar() debe persistir 
+"""Test de integración: SolicitudService.derivar() debe persistir
 el resultado real de la cadena de aprobación, no el original.
 """
 
