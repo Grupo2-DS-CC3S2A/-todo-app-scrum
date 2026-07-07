@@ -1,0 +1,23 @@
+server:
+  port: ${PORT:${SERVER_PORT:8082}}
+
+spring:
+  application:
+    name: identity-key-service
+
+identity:
+  supabase-jdbc-url: ${SUPABASE_JDBC_URL:jdbc:postgresql://127.0.0.1:54322/postgres}
+  supabase-db-user: ${SUPABASE_DB_USER:postgres}
+  supabase-db-password: ${SUPABASE_DB_PASSWORD:postgres}
+
+app:
+  security:
+    internal-token: ${INTERNAL_SERVICE_TOKEN:dev-internal-token}
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:*}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

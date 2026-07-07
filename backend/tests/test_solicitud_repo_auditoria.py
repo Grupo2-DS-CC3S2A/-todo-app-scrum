@@ -66,7 +66,8 @@ def test_lecturas_delegan_sin_alterar_resultados(
     assert repo_auditado.contar() == 2
     assert set(s.id for s in repo_auditado.listar_todas()) == {s1.id, s2.id}
     assert repo_auditado.listar_por_usuario("usuario-01") == [s1]
-    assert repo_auditado.listar_por_dependencia(
-        Dependencia.TRAMITE_DOCUMENTARIO
-    ) == repo_auditado.listar_todas()
+    assert (
+        repo_auditado.listar_por_dependencia(Dependencia.TRAMITE_DOCUMENTARIO)
+        == repo_auditado.listar_todas()
+    )
     assert repo_auditado.listar_por_estado(EstadoSolicitud.PENDIENTE) != []
