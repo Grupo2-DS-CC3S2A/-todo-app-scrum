@@ -44,6 +44,10 @@ def _rol_url(usuario_id: str) -> str:
     return f"{URL_USUARIOS}/{usuario_id}/rol"
 
 
+def _dependencia_url(usuario_id: str) -> str:
+    return f"{URL_USUARIOS}/{usuario_id}/dependencia"
+
+
 ADMIN_USERNAME = settings.admin_seed_username
 ADMIN_PASSWORD = settings.admin_seed_password
 
@@ -412,6 +416,55 @@ class TestCicloDeVidaDeAccesos:
         resp = client.patch(
             _rol_url(operador_id),
             json={"rol": "admin"},
+            headers=_auth_header(op_token),
+        )
+        assert resp.status_code == 403
+
+    def test_asignar_dependencia_a_operador(self, client: TestClient) -> None:
+        admin_token = _token_admin(client)
+        operador_id = self._crear_operador(client, admin_token)
+
+        resp = client.patch(
+            _dependencia_url(operador_id),
+            json={"dependencia_asignada": "Tesoreria"},
+            headers=_auth_header(admin_token),
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["dependencia_asignada"] == "Tesoreria"
+
+        listado = client.get(URL_USUARIOS, headers=_auth_header(admin_token))
+        dependencias = {
+            u["username"]: u["dependencia_asignada"] for u in listado.json()
+        }
+        assert dependencias["operador01"] == "Tesoreria"
+
+    def test_limpiar_dependencia_asignada_con_null(self, client: TestClient) -> None:
+        admin_token = _token_admin(client)
+        operador_id = self._crear_operador(client, admin_token)
+        client.patch(
+            _dependencia_url(operador_id),
+            json={"dependencia_asignada": "Tesoreria"},
+            headers=_auth_header(admin_token),
+        )
+
+        resp = client.patch(
+            _dependencia_url(operador_id),
+            json={"dependencia_asignada": None},
+            headers=_auth_header(admin_token),
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["dependencia_asignada"] is None
+
+    def test_asignar_dependencia_sin_admin_devuelve_403(
+        self, client: TestClient
+    ) -> None:
+        admin_token = _token_admin(client)
+        operador_id = self._crear_operador(client, admin_token)
+        op_token = _login(client, "operador01", "Operador123!").json()["access_token"]
+
+        resp = client.patch(
+            _dependencia_url(operador_id),
+            json={"dependencia_asignada": "Tesoreria"},
             headers=_auth_header(op_token),
         )
         assert resp.status_code == 403
