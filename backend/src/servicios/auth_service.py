@@ -1,4 +1,4 @@
-"""Servicio de autenticacion JWT y manejo seguro de contrasenas (S2-05).
+"""Servicio de autenticacion JWT y manejo seguro de contrasenas.
 
 Responsabilidades:
 
@@ -22,8 +22,10 @@ from jose import JWTError, jwt
 from src.config import settings
 from src.excepciones.errors import (
     CredencialesInvalidasError,
+    PermisoDenegadoError,
     TokenInvalidoError,
     UsuarioDuplicadoError,
+    UsuarioInactivoError,
 )
 from src.logging_config import get_logger
 from src.modelos.usuario import (
@@ -125,6 +127,7 @@ class AuthService:
 
         Raises:
             CredencialesInvalidasError: Si username no existe o password no coincide.
+            UsuarioInactivoError: Si la cuenta fue desactivada por un administrador.
         """
         try:
             usuario = self._repo.obtener_por_username(payload.username)
@@ -132,6 +135,13 @@ class AuthService:
             raise CredencialesInvalidasError("Usuario o contrasena incorrectos.")
         if not self.verificar_password(payload.password, usuario.password_hash):
             raise CredencialesInvalidasError("Usuario o contrasena incorrectos.")
+        if not usuario.activo:
+            logger.warning(
+                "Login rechazado, cuenta inactiva | username=%s", usuario.username
+            )
+            raise UsuarioInactivoError(
+                "La cuenta esta desactivada. Contacte al administrador."
+            )
         logger.info("Login exitoso | username=%s", usuario.username)
         return self.emitir_token(usuario)
 
@@ -156,6 +166,54 @@ class AuthService:
     # ----------------------------------------------------- Lookup helpers
     def obtener_usuario(self, usuario_id: str) -> Usuario:
         return self._repo.obtener_por_id(usuario_id)
+
+    def listar_usuarios(self) -> list[Usuario]:
+        """Lista todos los usuarios para control de acceso."""
+        return self._repo.listar()
+
+    # --------------------------------------------- Ciclo de vida de acceso
+    def actualizar_estado(
+        self, usuario_id: str, activo: bool, *, solicitante: Usuario
+    ) -> Usuario:
+        """Activa o revoca el acceso de un usuario.
+
+        Un administrador no puede desactivar su propia cuenta, para evitar
+        quedar sin ningun admin con sesion valida.
+
+        Raises:
+            PermisoDenegadoError: Si intenta autodesactivarse.
+            UsuarioNoEncontradoError: Si el usuario no existe.
+        """
+        if usuario_id == solicitante.id and not activo:
+            raise PermisoDenegadoError("No puede desactivar su propia cuenta.")
+        usuario = self._repo.obtener_por_id(usuario_id)
+        actualizado = usuario.model_copy(update={"activo": activo})
+        self._repo.actualizar(actualizado)
+        logger.info(
+            "Acceso %s | id=%s | username=%s | por=%s",
+            "activado" if activo else "revocado",
+            usuario_id,
+            usuario.username,
+            solicitante.username,
+        )
+        return actualizado
+
+    def actualizar_rol(self, usuario_id: str, rol: RolUsuario) -> Usuario:
+        """Cambia el rol de un usuario existente.
+
+        Raises:
+            UsuarioNoEncontradoError: Si el usuario no existe.
+        """
+        usuario = self._repo.obtener_por_id(usuario_id)
+        actualizado = usuario.model_copy(update={"rol": rol})
+        self._repo.actualizar(actualizado)
+        logger.info(
+            "Rol actualizado | id=%s | username=%s | rol=%s",
+            usuario_id,
+            usuario.username,
+            rol.value,
+        )
+        return actualizado
 
     # ---------------------------------------------------------- Seed admin
     def _seed_admin_si_falta(self) -> None:

@@ -41,9 +41,12 @@ async def get_current_user(
     if not usuario_id:
         raise TokenInvalidoError("Token sin claim 'sub'.")
     try:
-        return auth.obtener_usuario(usuario_id)
+        usuario = auth.obtener_usuario(usuario_id)
     except UsuarioNoEncontradoError as exc:
         raise TokenInvalidoError("El usuario del token ya no existe.") from exc
+    if not usuario.activo:
+        raise TokenInvalidoError("El acceso de este usuario fue revocado.")
+    return usuario
 
 
 def require_roles(*roles: RolUsuario):
