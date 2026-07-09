@@ -12,7 +12,11 @@ Mesa de Partes Virtual permite a un ciudadano validar su identidad (DNI,
 dígito de verificación y fecha de emisión), registrar trámites documentarios
 dirigidos a dependencias internas y consultar el estado de sus solicitudes.
 Un administrador deriva las solicitudes a la dependencia correspondiente con
-apoyo de una sugerencia automática de enrutamiento.
+apoyo de una sugerencia automática de enrutamiento. Adicionalmente, el
+ciudadano puede firmar digitalmente el documento de su trámite: el frontend
+llama directamente a un subsistema Java independiente (`firma-java/`) que
+genera el par de llaves RSA, firma el archivo y devuelve un contenedor
+verificable.
 
 ### Topología desplegada
 
@@ -20,13 +24,33 @@ apoyo de una sugerencia automática de enrutamiento.
 |---|---|---|
 | Frontend | React + Vite + TypeScript | Vercel — `mdp-frontend-*.vercel.app` |
 | Backend | FastAPI (Python 3.10+) | Google Cloud Run — servicio `todo-app-backend`, proyecto `mesa-de-partes-501300`, `us-central1` |
-| Base de datos | PostgreSQL (Supabase) | Supabase Cloud — tablas `citizens`, `solicitudes`, `dependencias`, `usuarios` |
-| CI/CD | GitHub Actions | `ci.yml` (lint + tipos + tests + cobertura ≥85%), `docker-ci.yml` (deploy a Cloud Run + `supabase db push`) |
+| Firma digital | Java 21 + Spring Boot 3.3.5 (`identity-key-service` puerto 8082, `signature-service` puerto 8083) | Solo local (`mvn spring-boot:run` por módulo) — sin CI ni despliegue automatizado todavía |
+| Base de datos | PostgreSQL (Supabase) | Supabase Cloud — schema `public` (`citizens`, `solicitudes`, `dependencias`, `usuarios`), schema `firma_publica` (llaves públicas), schema `tramite_documentario` (`documentos_tramitados`) |
+| CI/CD | GitHub Actions | `ci.yml` (lint + tipos + tests + cobertura ≥85%, solo `backend/`), `docker-ci.yml` (deploy a Cloud Run + `supabase db push`) |
 
-El frontend lee `VITE_API_BASE_URL` para hablar con el backend; el backend
-usa `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (service role: la tabla
+El frontend lee `VITE_API_BASE_URL` para hablar con el backend FastAPI, y
+`VITE_SIGNATURE_API_URL` (por defecto `http://localhost:8083`, no listada en
+`frontend/.env.example`) para hablar **directamente** con `signature-service`
+— la firma digital no pasa por el backend Python. El backend usa
+`SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (service role: la tabla
 `citizens` tiene RLS activo sin políticas, de modo que **solo** el backend
 puede leerla — nunca el navegador).
+
+### Tres bases lógicas para la firma digital
+
+La migración `20261782604900_firma_digital_keys.sql` separa intencionalmente
+la llave privada de la pública:
+
+1. **Base 1** (privada) — `public.citizens.llave_privada`, en el mismo
+   Supabase del backend. Solo `identity-key-service` la lee (vía JDBC directo,
+   no PostgREST), y solo se la entrega a `signature-service` con un
+   `X-Internal-Token` compartido.
+2. **Base 2** (pública) — schema `firma_publica.citizens`, con
+   `llave_publica`. Se usa para verificar firmas sin exponer nunca la llave
+   privada.
+3. **Base 3** (documentos firmados) — H2 embebido de `signature-service`
+   (`SIGNED_DB_URL`, archivo local), con el documento, el hash, la firma y el
+   log de auditoría de cada operación de firma/verificación.
 
 ### Estructura del backend (capas)
 
@@ -45,6 +69,31 @@ backend/src/
 
 Regla de dependencia: `rutas → servicios → repositorios → modelos`.
 Ninguna capa inferior conoce a la superior.
+
+### Estructura de firma-java (microservicios)
+
+```
+firma-java/
+├── common-crypto/          # librería compartida: hashing SHA-256, firma/verificación RSA, generación de llaves
+├── identity-key-service/   # :8082 — dueño de la llave privada y la pública; API interna
+│   └── src/main/java/pe/edu/uni/firma/identity/
+│       ├── controller/      # IdentityController — /api/personas/*
+│       ├── service/         # IdentityKeyService, SeedCitizenFactory
+│       └── repository/      # Public/PrivateCitizenKeyRepository (JDBC directo a Supabase)
+└── signature-service/      # :8083 — firma, almacena y verifica documentos
+    └── src/main/java/pe/edu/uni/firma/signature/
+        ├── controller/      # DocumentController — /api/documentos/*
+        ├── service/         # DocumentSignatureFacade, DocumentSignatureEmailService
+        ├── client/          # IdentityKeyClient — llama a identity-key-service con X-Internal-Token
+        ├── patterns/        # Command, Strategy, Registry (ver §3.5)
+        ├── container/       # empaquetado del documento firmado (.uni-signed)
+        └── repository/      # SignedDocumentRepository, AuditRepository (H2 local)
+```
+
+`signature-service` nunca lee ni escribe la llave privada directamente:
+siempre la pide a `identity-key-service` por HTTP, autenticado con
+`INTERNAL_SERVICE_TOKEN`. Los dos módulos comparten `common-crypto` como
+dependencia Maven, no por copia de código.
 
 ---
 
@@ -87,6 +136,41 @@ La fachada delega en `SugerenciaDependenciaService`, que ejecuta la
 
 Login con bcrypt (factor 12) + emisión de JWT HS256 con claims `sub`, `rol`,
 `exp`. Seed idempotente de un admin inicial al arrancar.
+
+### 2.5 Registro y consulta de trámite (`/api/tramites/*`)
+
+`rutas/tramites.py` es la ruta más simple del backend: habla directo con
+Supabase (`client.schema("tramite_documentario")`) sin pasar por
+`servicios/` ni `repositorios/` — no sigue todavía la regla de capas del
+resto del sistema (deuda técnica a resolver si el módulo crece). Expone:
+alta (`POST /`), listado por DNI (`GET /{dni}`) y búsqueda por tipo de
+documento + rango de fechas (`GET /{dni}/buscar`). **No tiene tests
+dedicados** (no existe `tests/test_tramites.py`).
+
+### 2.6 Firma digital de documento (`signature-service`, fuera del backend Python)
+
+1. El frontend llama `POST http://localhost:8083/api/documentos/sign`
+   (multipart: `dni`, `file`, `email`, `dependencia`, `documentType`) —
+   `frontend/src/api/signatureApi.ts`, sin pasar por el backend FastAPI.
+2. `DocumentController` arma un `SignDocumentCommand` (**Command**) y lo
+   pasa a la **Fachada** `DocumentSignatureFacade`.
+3. La fachada pide la llave privada y pública del DNI a
+   `identity-key-service` (`IdentityKeyClient`, HTTP + `X-Internal-Token`).
+4. Un `DocumentPreprocessor` (**Strategy**, elegido por tipo de contenido vía
+   `DocumentPreprocessorRegistry`) prepara el archivo — si es PDF, le agrega
+   un sello visible.
+5. `OriginalCryptoAdapter` calcula el hash SHA-256 y firma con RSA modular
+   original (protocolo propio de la cátedra, no PKCS estándar).
+6. `SignedEnvelopeFactory` empaqueta documento + hash + firma + certificado
+   lógico en un único contenedor `.uni-signed` (formato ZIP propio), que se
+   guarda en la Base 3 (H2 local) junto a un registro de auditoría.
+7. Si se envió `email`, `DocumentSignatureEmailService` notifica al
+   ciudadano por SMTP con el documento visible adjunto.
+8. Verificación (`POST /api/documentos/{id}/verify` o
+   `/verify-upload`): recalcula el hash, valida la firma con
+   `RsaModularVerificationStrategy` y confirma que el certificado embebido
+   coincide con la Base 2 (`identity-key-service`) — un documento solo es
+   válido si las tres condiciones se cumplen.
 
 ---
 
@@ -217,7 +301,62 @@ inyección.
 | Application Factory | `main.create_app()` | Composición de la app en un solo punto |
 | DTO / Entidad separados | `modelos/*` (`DerivacionInput` vs `Solicitud` vs `SolicitudDerivada`) | El contrato HTTP no expone la entidad de dominio |
 
-### 3.5 Patrones evaluados y descartados (decisión consciente)
+### 3.5 Patrones en firma-java (microservicios Java)
+
+El subsistema de firma tiene su propio catálogo, independiente del backend
+Python pero con el mismo criterio: un patrón por problema real.
+
+#### Factory Method — `common-crypto/.../patterns/creational/{KeyPairFactory,RsaKeyPairFactory}.java`
+
+Genera el par de llaves RSA sin acoplar a `identity-key-service` al
+algoritmo concreto de generación; `SeedCitizenFactory`
+(`identity-key-service`) la usa para sembrar llaves una sola vez por
+ciudadano (`POST /api/personas/seed/once`, protegido con
+`X-Internal-Token`, idempotente vía `key_seed_control`).
+
+#### Adapter — `common-crypto/.../crypto/OriginalCryptoAdapter.java`
+
+Traduce el protocolo de firma propio de la cátedra (RSA modular original,
+no `java.security.Signature` estándar) a una interfaz simple
+(`sha256Hex`, `signToBase64`) que `DocumentSignatureFacade` consume sin
+conocer los detalles matemáticos.
+
+#### Facade — `signature-service/.../service/DocumentSignatureFacade.java`
+
+**Problema**: firmar un documento involucra 6 colaboradores (cliente de
+identidad, preprocesador, criptografía, empaquetado, repositorio y
+auditoría) — coordinarlos desde el controller mezclaría HTTP con lógica de
+negocio.
+
+**Solución**: `DocumentSignatureFacade` expone `sign`, `verify`,
+`verifyUploaded`, `listByDni`, `deleteDocument` como la única superficie que
+`DocumentController` conoce; internamente orquesta al resto de patrones de
+esta sección.
+
+#### Command — `signature-service/.../patterns/behavioral/SignDocumentCommand.java`
+
+Encapsula los datos de una operación de firma (`dni`, `fileName`,
+`contentType`, `content`) como un objeto inmutable que viaja desde el
+controller hasta la fachada, desacoplando la forma HTTP (multipart) de la
+lógica de firma.
+
+#### Strategy — `signature-service/.../patterns/behavioral/{SignatureVerificationStrategy,RsaModularVerificationStrategy}.java`
+
+Aísla el algoritmo de verificación de firma detrás de una interfaz, para
+poder soportar otro esquema de firma en el futuro sin tocar
+`DocumentSignatureFacade.verify()`.
+
+#### Strategy (registro) — `signature-service/.../patterns/behavioral/{DocumentPreprocessor,DocumentPreprocessorRegistry,DefaultBinaryPreprocessor,PdfStampPreprocessor}.java`
+
+**Problema**: preparar el documento antes de firmarlo difiere según el tipo
+de archivo — un PDF necesita un sello visible, un binario genérico no.
+
+**Solución**: `DocumentPreprocessorRegistry` elige en tiempo de ejecución
+entre `PdfStampPreprocessor` y `DefaultBinaryPreprocessor` según el
+`contentType`; agregar un formato nuevo (ej. DOCX) es una clase más, sin
+tocar `DocumentSignatureFacade`.
+
+### 3.6 Patrones evaluados y descartados (decisión consciente)
 
 - **Composite**: aplicaría a expedientes con documentos anexos jerárquicos;
   esa funcionalidad no existe todavía. Aplicarlo hoy sería sobre-ingeniería.
@@ -234,7 +373,8 @@ inyección.
 ## 4. Calidad y verificación
 
 - CI (`.github/workflows/ci.yml`): `black --check`, `flake8`, `mypy`
-  (plugin Pydantic), `pytest --cov=src --cov-fail-under=85`.
+  (plugin Pydantic), `pytest --cov=src --cov-fail-under=85`. Cubre solo
+  `backend/` — `frontend/` y `firma-java/` no tienen pipeline propio todavía.
 - Estado tras la refactorización estructural: **151 tests, cobertura 92%**.
 - Tests específicos de patrones:
   - `tests/test_mesa_de_partes_facade.py` (Facade + integración con Bridge)
@@ -243,6 +383,9 @@ inyección.
   - `tests/test_notificaciones.py` (Bridge: mismo notificador × 3 canales)
   - `tests/test_cadena_aprobacion.py`, `tests/test_enrutamiento_service.py`,
     `tests/test_documento_factory.py` (patrones previos)
+- **Huecos de cobertura conocidos**: `rutas/tramites.py` no tiene tests
+  (backend); `firma-java/` (los tres módulos Maven) no tiene tests
+  automatizados ni CI configurado.
 
 ## 5. Datos de prueba
 
