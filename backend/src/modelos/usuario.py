@@ -1,4 +1,4 @@
-"""Modelos Pydantic del agregado Usuario (S2-05).
+"""Modelos Pydantic del agregado Usuario.
 
 Define la entidad ``Usuario`` y los DTOs del flujo de autenticacion JWT:
 ``LoginInput``, ``RegistroInput`` y ``TokenResponse``. Las contrasenas
@@ -49,6 +49,7 @@ class Usuario(BaseModel):
     ]
     password_hash: Annotated[str, Field(min_length=1)]
     rol: RolUsuario = RolUsuario.CIUDADANO
+    activo: bool = True
     created_at: datetime = Field(default_factory=_ahora_utc)
 
 
@@ -60,6 +61,7 @@ class UsuarioPublico(BaseModel):
     id: str
     username: str
     rol: RolUsuario
+    activo: bool
     created_at: datetime
 
 
@@ -92,6 +94,22 @@ class RegistroInput(BaseModel):
         Field(min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH),
     ]
     rol: RolUsuario = RolUsuario.OPERADOR
+
+
+class ActualizarEstadoInput(BaseModel):
+    """Payload de PATCH /api/auth/usuarios/{id}/estado (solo admin)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    activo: bool
+
+
+class ActualizarRolInput(BaseModel):
+    """Payload de PATCH /api/auth/usuarios/{id}/rol (solo admin)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rol: RolUsuario
 
 
 class TokenResponse(BaseModel):
