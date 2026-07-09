@@ -1,0 +1,100 @@
+name: Deploy Firma Java Services to Cloud Run
+
+on:
+  push:
+    branches:
+      - developer
+    paths:
+      - 'firma-java/**'
+      - '.github/workflows/docker-ci-firma.yml'
+
+env:
+  PROJECT_ID: 'mesa-de-partes-501300'
+  REGION: 'europe-west1'
+
+jobs:
+  deploy-identity-key-service:
+    runs-on: ubuntu-latest
+    outputs:
+      identity_url: ${{ steps.get-url.outputs.url }}
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v5
+
+      - name: Autenticación en Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+      - name: Configurar Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configurar Docker para Container Registry
+        run: gcloud auth configure-docker gcr.io --quiet
+
+      - name: Construir imagen identity-key-service
+        run: |
+          docker build -f firma-java/Dockerfile.identity \
+            -t gcr.io/${{ env.PROJECT_ID }}/identity-key-service:${{ github.sha }} \
+            firma-java
+
+      - name: Subir imagen a Container Registry
+        run: docker push gcr.io/${{ env.PROJECT_ID }}/identity-key-service:${{ github.sha }}
+
+      - name: Desplegar en Cloud Run
+        run: |
+          gcloud run deploy identity-key-service \
+            --image gcr.io/${{ env.PROJECT_ID }}/identity-key-service:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --allow-unauthenticated \
+            --project ${{ env.PROJECT_ID }} \
+            --set-env-vars "^##^SUPABASE_JDBC_URL=${{ secrets.SUPABASE_JDBC_URL }}##SUPABASE_DB_USER=${{ secrets.SUPABASE_DB_USER }}##SUPABASE_DB_PASSWORD=${{ secrets.SUPABASE_DB_PASSWORD }}##INTERNAL_SERVICE_TOKEN=${{ secrets.INTERNAL_SERVICE_TOKEN }}"
+
+      - name: Obtener URL del servicio desplegado
+        id: get-url
+        run: |
+          URL=$(gcloud run services describe identity-key-service \
+            --region ${{ env.REGION }} \
+            --project ${{ env.PROJECT_ID }} \
+            --format='value(status.url)')
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+  deploy-signature-service:
+    needs: deploy-identity-key-service
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v5
+
+      - name: Autenticación en Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+      - name: Configurar Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configurar Docker para Container Registry
+        run: gcloud auth configure-docker gcr.io --quiet
+
+      - name: Construir imagen signature-service
+        run: |
+          docker build -f firma-java/Dockerfile.signature \
+            -t gcr.io/${{ env.PROJECT_ID }}/signature-service:${{ github.sha }} \
+            firma-java
+
+      - name: Subir imagen a Container Registry
+        run: docker push gcr.io/${{ env.PROJECT_ID }}/signature-service:${{ github.sha }}
+
+      # IDENTITY_SERVICE_URL sale del job anterior (URL real del servicio recién
+      # desplegado), no del default hardcodeado en application.yml.
+      - name: Desplegar en Cloud Run
+        run: |
+          gcloud run deploy signature-service \
+            --image gcr.io/${{ env.PROJECT_ID }}/signature-service:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --allow-unauthenticated \
+            --project ${{ env.PROJECT_ID }} \
+            --set-env-vars "^##^IDENTITY_SERVICE_URL=${{ needs.deploy-identity-key-service.outputs.identity_url }}##INTERNAL_SERVICE_TOKEN=${{ secrets.INTERNAL_SERVICE_TOKEN }}##MAIL_HOST=${{ secrets.MAIL_HOST }}##MAIL_PORT=${{ secrets.MAIL_PORT }}##MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}##MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}##MAIL_FROM=${{ secrets.MAIL_FROM }}"
