@@ -18,6 +18,7 @@ from src.rutas import (
     validacion_router,
     dependencias_router,
     tramites_router,
+    entidad_simulada_router,
 )
 
 logger = get_logger(__name__)
@@ -43,6 +44,7 @@ def create_app() -> FastAPI:
     app.include_router(admin_solicitudes_router)
     app.include_router(dependencias_router)
     app.include_router(tramites_router)
+    app.include_router(entidad_simulada_router)
 
     @app.get("/health", tags=["meta"], summary="Health check")
     async def healthcheck() -> dict[str, str]:
