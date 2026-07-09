@@ -16,8 +16,11 @@ import {
 import { validarCiudadano } from "@/api/validationApi";
 import { ApiError } from "@/types/voting";
 import type { CiudadanoValidado } from "@/types/ciudadano";
+import { EntidadSimuladaView } from "./components/EntidadSimuladaView";
+import { LoginPage } from "@/components/LoginPage";
+import { useAuth } from "@/hooks/useAuth";
 
-type Screen = "status" | "validation" | "dashboard" | "registration" | "inbox";
+type Screen = "status" | "validation" | "dashboard" | "registration" | "inbox" | "entidad-simulada";
 type MessageKind = "success" | "warning" | "error" | "info";
 
 interface AppMessage {
@@ -25,7 +28,17 @@ interface AppMessage {
   readonly text: string;
 }
 
-const CAPTCHA_CODE = "r8nm6";
+function generateCaptchaCode(length = 5): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  let value = "";
+
+  for (let i = 0; i < length; i += 1) {
+    const index = Math.floor(Math.random() * alphabet.length);
+    value += alphabet[index];
+  }
+
+  return value;
+}
 
 
 
@@ -80,6 +93,12 @@ export default function App(): ReactElement {
           <button className={screen === "inbox" ? "active" : ""} onClick={() => showScreen("inbox")}>
             Mis Documentos
           </button>
+          <button
+            className={screen === "entidad-simulada" ? "active" : ""}
+            onClick={() => showScreen("entidad-simulada")}
+          >
+            Entidad Simulada
+          </button>
         </div>
         <div className="user-info">
           {user ? `DNI: ${user.dni} | ${fullName(user)}` : "DNI: 066XXXXX | USUARIO NO VALIDADO"}
@@ -107,6 +126,8 @@ export default function App(): ReactElement {
         {screen === "dashboard" && <DashboardScreen userName={fullName(user)} onNavigate={showScreen} />}
 
         {screen === "inbox" && <InboxScreen dni={user?.dni ?? ""} />}
+
+        {screen === "entidad-simulada" && <EntidadSimuladaGate />}
 
         {screen === "registration" && (
           <RegistrationScreen
@@ -136,6 +157,35 @@ export default function App(): ReactElement {
   );
 }
 
+function EntidadSimuladaGate(): ReactElement {
+  const { isAutenticado, cargando, sesion } = useAuth();
+
+  if (cargando) {
+    return (
+      <section className="screen-block">
+        <p>Verificando sesion...</p>
+      </section>
+    );
+  }
+
+  if (!isAutenticado || !sesion) {
+    return <LoginPage />;
+  }
+
+  if (sesion.usuario.rol !== "admin" && sesion.usuario.rol !== "operador") {
+    return (
+      <section className="screen-block">
+        <div className="app-message error">
+          Esta seccion es exclusiva para personal de la entidad revisora
+          (administrador u operador). Su cuenta no tiene ese rol.
+        </div>
+      </section>
+    );
+  }
+
+  return <EntidadSimuladaView usuario={sesion.usuario} token={sesion.token} />;
+}
+
 function ValidationScreen({
   onBack,
   onValidated,
@@ -151,6 +201,7 @@ function ValidationScreen({
   const [digit, setDigit] = useState<string>("");
   const [date, setDate] = useState<string>("");
   const [captcha, setCaptcha] = useState<string>("");
+  const [captchaCode, setCaptchaCode] = useState<string>(() => generateCaptchaCode());
   const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -172,8 +223,10 @@ function ValidationScreen({
       return;
     }
 
-    if (captcha.toLowerCase() !== CAPTCHA_CODE) {
+    if (captcha.trim().toLowerCase() !== captchaCode.toLowerCase()) {
       onError("El codigo CAPTCHA no coincide.");
+      setCaptcha("");
+      setCaptchaCode(generateCaptchaCode());
       return;
     }
 
@@ -244,7 +297,7 @@ function ValidationScreen({
           <div className="form-group">
             <label htmlFor="captcha-input">Codigo CAPTCHA</label>
             <div className="flex-gap-10">
-              <div className="captcha-box">{CAPTCHA_CODE}</div>
+              <div className="captcha-box">{captchaCode}</div>
               <input
                 id="captcha-input"
                 type="text"
@@ -327,7 +380,7 @@ function DashboardScreen({
         Estimado <strong>{userName}</strong>, por este canal virtual podra presentar documentos de forma rapida sin necesidad de acercarse a la Mesa de Partes del RENIEC.
       </p>
 
-      <div className="dashboard-grid dashboard-grid-2">
+      <div className="dashboard-grid dashboard-grid-3">
         <button className="card" onClick={() => onNavigate("registration")}>
           <div className="card-icon">📄</div>
           <h3>Registro de Documento</h3>
@@ -338,6 +391,12 @@ function DashboardScreen({
           <div className="card-icon">📁</div>
           <h3>Mis Documentos</h3>
           <p>Consulte sus tramites realizados</p>
+        </button>
+
+        <button className="card" onClick={() => onNavigate("entidad-simulada")}>
+          <div className="card-icon">🏛️</div>
+          <h3>Entidad Simulada</h3>
+          <p>Revise documentos por dependencia</p>
         </button>
       </div>
     </section>

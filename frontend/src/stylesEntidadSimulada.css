@@ -1,0 +1,149 @@
+.entidad-page {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 36px 24px 48px;
+}
+
+.entidad-card {
+  width: min(1080px, 100%);
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 28px 36px;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+}
+
+.entidad-review-box {
+  width: min(520px, 100%);
+  background: #f1f1f1;
+  padding: 16px 20px;
+  margin-bottom: 28px;
+}
+
+.entidad-label {
+  display: block;
+  font-weight: 700;
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.entidad-select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #ffffff;
+  font-size: 16px;
+}
+
+.entidad-search-title {
+  margin: 0 0 24px;
+}
+
+.entidad-search-title h2 {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0 0 10px;
+}
+
+.entidad-search-title p {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.entidad-table-wrapper {
+  min-height: 148px;
+  border: 1px solid #111827;
+  overflow-x: auto;
+  background: #ffffff;
+}
+
+.entidad-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.entidad-table th {
+  background: #f3f4f6;
+  color: #7a003c;
+  font-weight: 500;
+  text-align: left;
+  padding: 12px;
+  border-bottom: 1px solid #d1d5db;
+}
+
+.entidad-table td {
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.entidad-row {
+  cursor: pointer;
+}
+
+.entidad-row:hover {
+  background: #fff7ed;
+}
+
+.entidad-row-selected {
+  background: #fdebd3;
+  outline: 2px solid #ff4b00;
+}
+
+.entidad-empty {
+  text-align: center;
+  color: #6b7280;
+  height: 80px;
+}
+
+.entidad-selected-info {
+  margin: 12px 0 0;
+  font-size: 14px;
+  color: #374151;
+}
+
+.entidad-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 28px;
+  margin-top: 36px;
+  flex-wrap: wrap;
+}
+
+.entidad-action-button {
+  min-width: 160px;
+  border: 0;
+  border-radius: 5px;
+  background: #ff4b00;
+  color: #ffffff;
+  font-weight: 700;
+  padding: 14px 20px;
+  cursor: pointer;
+}
+
+.entidad-action-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.entidad-message {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.entidad-message-ok {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #86efac;
+}
+
+.entidad-message-error {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}

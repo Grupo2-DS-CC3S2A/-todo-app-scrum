@@ -30,6 +30,8 @@ export interface UsuarioPublico {
   readonly id: string;
   readonly username: string;
   readonly rol: RolUsuario;
+  readonly activo: boolean;
+  readonly dependencia_asignada: string | null;
   readonly created_at: string;
 }
 
