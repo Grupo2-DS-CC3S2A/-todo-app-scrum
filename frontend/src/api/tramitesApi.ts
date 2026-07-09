@@ -1,3 +1,5 @@
+import { ApiError, type ApiErrorBody } from "@/types/voting";
+
 export type TipoDocumento = "CARTA" | "SOLICITUD" | "OFICIO";
 
 export interface TramiteDb {
@@ -25,6 +27,17 @@ const API_BASE_URL: string =
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() ||
   DEFAULT_BASE_URL;
 
+async function parseError(response: Response): Promise<ApiError> {
+  let detail = `HTTP ${response.status}`;
+  try {
+    const body = (await response.json()) as ApiErrorBody;
+    if (body?.detail) detail = body.detail;
+  } catch {
+    // Cuerpo no JSON.
+  }
+  return new ApiError(response.status, detail);
+}
+
 export async function registrarTramite(
   payload: RegistrarTramitePayload,
 ): Promise<TramiteDb> {
@@ -36,10 +49,7 @@ export async function registrarTramite(
     body: JSON.stringify(payload),
   });
 
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || "No se pudo registrar el trámite.");
-  }
+  if (!response.ok) throw await parseError(response);
 
   return (await response.json()) as TramiteDb;
 }
@@ -61,10 +71,7 @@ export async function buscarTramites(params: {
     `${API_BASE_URL}/api/tramites/${params.dni}/buscar?${query.toString()}`,
   );
 
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || "No se pudo consultar la búsqueda.");
-  }
+  if (!response.ok) throw await parseError(response);
 
   return (await response.json()) as readonly TramiteDb[];
 }

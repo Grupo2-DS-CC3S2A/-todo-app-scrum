@@ -35,7 +35,7 @@ app:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:*}
 
   identity-service:
-    base-url: ${IDENTITY_SERVICE_URL:http://localhost:8082}
+    base-url: ${IDENTITY_SERVICE_URL:https://identity-key-service-912129779402.europe-west1.run.app}
     internal-token: ${INTERNAL_SERVICE_TOKEN:dev-internal-token}
 
   mail:

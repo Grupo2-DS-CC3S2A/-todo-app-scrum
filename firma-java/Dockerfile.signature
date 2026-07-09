@@ -1,0 +1,24 @@
+# Paso 1: Compilar usando Java 21 y Maven
+FROM maven:3.9.6-eclipse-temurin-21 AS build
+WORKDIR /app
+
+# Copiar configuración del monorepositorio
+COPY pom.xml .
+COPY common-crypto/ ./common-crypto/
+COPY identity-key-service/ ./identity-key-service/
+COPY signature-service/ ./signature-service/
+
+# Compilar solo el módulo signature-service y sus dependencias internas (-am)
+RUN mvn clean package -pl signature-service -am -DskipTests
+
+# Paso 2: Imagen ligera de ejecución con Java 21
+FROM eclipse-temurin:21-jre-jammy
+WORKDIR /app
+
+# Copiar el JAR generado dinámicamente
+COPY --from=build /app/signature-service/target/signature-service-*.jar app.jar
+
+EXPOSE 8080
+
+# Inyección dinámica del puerto asignado por Google Cloud Run
+ENTRYPOINT ["java", "-Dserver.port=${PORT:8080}", "-jar", "app.jar"]
