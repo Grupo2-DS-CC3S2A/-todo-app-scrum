@@ -11,6 +11,8 @@ Y la administracion del ciclo de vida de accesos para admin:
 - ``GET   /api/auth/usuarios``: lista usuarios (revision de accesos).
 - ``PATCH /api/auth/usuarios/{id}/estado``: activa o revoca el acceso.
 - ``PATCH /api/auth/usuarios/{id}/rol``: cambia el rol asignado.
+- ``PATCH /api/auth/usuarios/{id}/dependencia``: asigna la dependencia que
+  un operador puede revisar (modulo de entidad revisora).
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ from fastapi import APIRouter, Depends, status
 
 from src.logging_config import get_logger
 from src.modelos.usuario import (
+    ActualizarDependenciaInput,
     ActualizarEstadoInput,
     ActualizarRolInput,
     LoginInput,
@@ -41,6 +44,7 @@ def _a_publico(usuario: Usuario) -> UsuarioPublico:
         username=usuario.username,
         rol=usuario.rol,
         activo=usuario.activo,
+        dependencia_asignada=usuario.dependencia_asignada,
         created_at=usuario.created_at,
     )
 
@@ -132,4 +136,20 @@ async def actualizar_rol(
 ) -> UsuarioPublico:
     """Cambio de rol dentro del ciclo de vida de la identidad."""
     usuario = auth.actualizar_rol(usuario_id, payload.rol)
+    return _a_publico(usuario)
+
+
+@router.patch(
+    "/usuarios/{usuario_id}/dependencia",
+    response_model=UsuarioPublico,
+    summary="Asigna la dependencia que un operador puede revisar (solo administrador).",
+)
+async def actualizar_dependencia(
+    usuario_id: str,
+    payload: ActualizarDependenciaInput,
+    auth: AuthService = Depends(get_auth_service),
+    _admin: Usuario = Depends(require_admin),
+) -> UsuarioPublico:
+    """Acota el modulo de entidad revisora a una sola dependencia por operador."""
+    usuario = auth.actualizar_dependencia(usuario_id, payload.dependencia_asignada)
     return _a_publico(usuario)

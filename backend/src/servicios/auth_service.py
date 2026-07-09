@@ -160,6 +160,7 @@ class AuthService:
             username=payload.username,
             password_hash=self.hashear_password(payload.password),
             rol=payload.rol,
+            dependencia_asignada=payload.dependencia_asignada,
         )
         return self._repo.guardar(usuario)
 
@@ -212,6 +213,27 @@ class AuthService:
             usuario_id,
             usuario.username,
             rol.value,
+        )
+        return actualizado
+
+    def actualizar_dependencia(
+        self, usuario_id: str, dependencia_asignada: str | None
+    ) -> Usuario:
+        """Asigna o limpia la dependencia que un operador puede revisar.
+
+        Raises:
+            UsuarioNoEncontradoError: Si el usuario no existe.
+        """
+        usuario = self._repo.obtener_por_id(usuario_id)
+        actualizado = usuario.model_copy(
+            update={"dependencia_asignada": dependencia_asignada}
+        )
+        self._repo.actualizar(actualizado)
+        logger.info(
+            "Dependencia asignada actualizada | id=%s | username=%s | dependencia=%s",
+            usuario_id,
+            usuario.username,
+            dependencia_asignada,
         )
         return actualizado
 

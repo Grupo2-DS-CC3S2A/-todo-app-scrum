@@ -50,6 +50,7 @@ class Usuario(BaseModel):
     password_hash: Annotated[str, Field(min_length=1)]
     rol: RolUsuario = RolUsuario.CIUDADANO
     activo: bool = True
+    dependencia_asignada: str | None = None
     created_at: datetime = Field(default_factory=_ahora_utc)
 
 
@@ -62,6 +63,7 @@ class UsuarioPublico(BaseModel):
     username: str
     rol: RolUsuario
     activo: bool
+    dependencia_asignada: str | None
     created_at: datetime
 
 
@@ -94,6 +96,7 @@ class RegistroInput(BaseModel):
         Field(min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH),
     ]
     rol: RolUsuario = RolUsuario.OPERADOR
+    dependencia_asignada: str | None = None
 
 
 class ActualizarEstadoInput(BaseModel):
@@ -110,6 +113,20 @@ class ActualizarRolInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     rol: RolUsuario
+
+
+class ActualizarDependenciaInput(BaseModel):
+    """Payload de PATCH /api/auth/usuarios/{id}/dependencia (solo admin).
+
+    ``dependencia_asignada`` es texto libre (coincide con el nombre usado
+    en ``dependencias.nombre`` y en ``documentos_tramitados.dependencia``,
+    que tampoco son un enum en base de datos). ``None`` limpia la
+    asignacion, util al degradar un operador o al promover a admin.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    dependencia_asignada: str | None
 
 
 class TokenResponse(BaseModel):
