@@ -32,7 +32,17 @@ from src.servicios.auth_service import get_auth_service
 URL_LOGIN = "/api/auth/login"
 URL_REGISTER = "/api/auth/register"
 URL_ME = "/api/auth/me"
+URL_USUARIOS = "/api/auth/usuarios"
 URL_ADMIN_LIST = "/api/admin/solicitudes"
+
+
+def _estado_url(usuario_id: str) -> str:
+    return f"{URL_USUARIOS}/{usuario_id}/estado"
+
+
+def _rol_url(usuario_id: str) -> str:
+    return f"{URL_USUARIOS}/{usuario_id}/rol"
+
 
 ADMIN_USERNAME = settings.admin_seed_username
 ADMIN_PASSWORD = settings.admin_seed_password
@@ -264,3 +274,144 @@ class TestAdminProtegidoConJWT:
             headers={"X-Admin-Token": "RENIEC_ADMIN_SUPER_SECRET_2026"},
         )
         assert resp.status_code == 200
+
+
+# Ciclo de vida de accesos
+class TestCicloDeVidaDeAccesos:
+    def _crear_operador(
+        self, client: TestClient, admin_token: str, username: str = "operador01"
+    ) -> str:
+        resp = client.post(
+            URL_REGISTER,
+            json={"username": username, "password": "Operador123!", "rol": "operador"},
+            headers=_auth_header(admin_token),
+        )
+        assert resp.status_code == 201, resp.text
+        return resp.json()["id"]
+
+    def test_listar_usuarios_sin_admin_devuelve_403(self, client: TestClient) -> None:
+        admin_token = _token_admin(client)
+        self._crear_operador(client, admin_token)
+        op_token = _login(client, "operador01", "Operador123!").json()["access_token"]
+        resp = client.get(URL_USUARIOS, headers=_auth_header(op_token))
+        assert resp.status_code == 403
+
+    def test_listar_usuarios_incluye_estado_activo(self, client: TestClient) -> None:
+        admin_token = _token_admin(client)
+        self._crear_operador(client, admin_token)
+        resp = client.get(URL_USUARIOS, headers=_auth_header(admin_token))
+        assert resp.status_code == 200
+        usernames_activos = {u["username"]: u["activo"] for u in resp.json()}
+        assert usernames_activos["operador01"] is True
+
+    def test_desactivar_usuario_bloquea_login_futuro(self, client: TestClient) -> None:
+        admin_token = _token_admin(client)
+        operador_id = self._crear_operador(client, admin_token)
+
+        resp = client.patch(
+            _estado_url(operador_id),
+            json={"activo": False},
+            headers=_auth_header(admin_token),
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["activo"] is False
+
+        login_resp = _login(client, "operador01", "Operador123!")
+        assert login_resp.status_code == 403
+        assert login_resp.json()["tipo"] == "UsuarioInactivoError"
+
+    def test_desactivar_usuario_revoca_token_ya_emitido(
+        self, client: TestClient
+    ) -> None:
+        admin_token = _token_admin(client)
+        operador_id = self._crear_operador(client, admin_token)
+        op_token = _login(client, "operador01", "Operador123!").json()["access_token"]
+
+        # El token todavia es valido antes de la revocacion.
+        assert client.get(URL_ME, headers=_auth_header(op_token)).status_code == 200
+
+        client.patch(
+            _estado_url(operador_id),
+            json={"activo": False},
+            headers=_auth_header(admin_token),
+        ).raise_for_status()
+
+        resp = client.get(URL_ME, headers=_auth_header(op_token))
+        assert resp.status_code == 401
+        assert resp.json()["tipo"] == "TokenInvalidoError"
+
+    def test_reactivar_usuario_permite_login_de_nuevo(self, client: TestClient) -> None:
+        admin_token = _token_admin(client)
+        operador_id = self._crear_operador(client, admin_token)
+        client.patch(
+            _estado_url(operador_id),
+            json={"activo": False},
+            headers=_auth_header(admin_token),
+        ).raise_for_status()
+
+        resp = client.patch(
+            _estado_url(operador_id),
+            json={"activo": True},
+            headers=_auth_header(admin_token),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["activo"] is True
+        assert _login(client, "operador01", "Operador123!").status_code == 200
+
+    def test_admin_no_puede_desactivar_su_propia_cuenta(
+        self, client: TestClient
+    ) -> None:
+        admin_token = _token_admin(client)
+        me_resp = client.get(URL_ME, headers=_auth_header(admin_token))
+        admin_id = me_resp.json()["id"]
+
+        resp = client.patch(
+            _estado_url(admin_id),
+            json={"activo": False},
+            headers=_auth_header(admin_token),
+        )
+        assert resp.status_code == 403
+        assert resp.json()["tipo"] == "PermisoDenegadoError"
+
+    def test_actualizar_estado_usuario_inexistente_devuelve_404(
+        self, client: TestClient
+    ) -> None:
+        admin_token = _token_admin(client)
+        resp = client.patch(
+            _estado_url("no-existe"),
+            json={"activo": False},
+            headers=_auth_header(admin_token),
+        )
+        assert resp.status_code == 404
+
+    def test_cambiar_rol_actualiza_permisos_en_el_siguiente_token(
+        self, client: TestClient
+    ) -> None:
+        admin_token = _token_admin(client)
+        operador_id = self._crear_operador(client, admin_token)
+
+        resp = client.patch(
+            _rol_url(operador_id),
+            json={"rol": "admin"},
+            headers=_auth_header(admin_token),
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["rol"] == "admin"
+
+        nuevo_token = _login(client, "operador01", "Operador123!").json()[
+            "access_token"
+        ]
+        resp = client.get(URL_ADMIN_LIST, headers=_auth_header(nuevo_token))
+        assert resp.status_code == 200
+
+    def test_cambiar_rol_sin_admin_devuelve_403(self, client: TestClient) -> None:
+        admin_token = _token_admin(client)
+        operador_id = self._crear_operador(client, admin_token)
+        op_token = _login(client, "operador01", "Operador123!").json()["access_token"]
+
+        resp = client.patch(
+            _rol_url(operador_id),
+            json={"rol": "admin"},
+            headers=_auth_header(op_token),
+        )
+        assert resp.status_code == 403
