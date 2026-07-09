@@ -60,6 +60,14 @@ class UsuarioRepository(ABC):
     def listar(self) -> list[Usuario]:
         """Lista todos los usuarios persistidos."""
 
+    @abstractmethod
+    def actualizar(self, usuario: Usuario) -> Usuario:
+        """Persiste cambios sobre un usuario existente (rol, activo).
+
+        Raises:
+            UsuarioNoEncontradoError: Si no existe.
+        """
+
 
 class RepositorioUsuarioEnMemoria(UsuarioRepository):
     """Adaptador en memoria thread-safe (GoF Singleton)."""
@@ -126,6 +134,21 @@ class RepositorioUsuarioEnMemoria(UsuarioRepository):
         with self._lock:
             return list(self._por_id.values())
 
+    def actualizar(self, usuario: Usuario) -> Usuario:
+        with self._lock:
+            if usuario.id not in self._por_id:
+                raise UsuarioNoEncontradoError(
+                    f"No existe usuario con id '{usuario.id}'."
+                )
+            self._por_id[usuario.id] = usuario
+        logger.info(
+            "Usuario actualizado | id=%s | rol=%s | activo=%s",
+            usuario.id,
+            usuario.rol.value,
+            usuario.activo,
+        )
+        return usuario
+
 
 class RepositorioUsuarioSupabase(UsuarioRepository):
     """Adaptador Supabase que persiste en public.usuarios (MDP-54)
@@ -148,6 +171,7 @@ class RepositorioUsuarioSupabase(UsuarioRepository):
                     "username": usuario.username,
                     "password_hash": usuario.password_hash,
                     "rol": usuario.rol.value,
+                    "activo": usuario.activo,
                     "created_at": usuario.created_at.isoformat(),
                 }
             ).execute()
@@ -207,6 +231,17 @@ class RepositorioUsuarioSupabase(UsuarioRepository):
             self._fila_a_usuario(cast(dict[str, Any], row)) for row in response.data
         ]
 
+    def actualizar(self, usuario: Usuario) -> Usuario:
+        response = (
+            self._client.table("usuarios")
+            .update({"rol": usuario.rol.value, "activo": usuario.activo})
+            .eq("id", usuario.id)
+            .execute()
+        )
+        if not response.data:
+            raise UsuarioNoEncontradoError(f"No existe usuario con id '{usuario.id}'.")
+        return self._fila_a_usuario(cast(dict[str, Any], response.data[0]))
+
     @staticmethod
     def _fila_a_usuario(row: dict[str, Any]) -> Usuario:
         return Usuario(
@@ -214,6 +249,7 @@ class RepositorioUsuarioSupabase(UsuarioRepository):
             username=str(row["username"]),
             password_hash=str(row["password_hash"]),
             rol=RolUsuario(str(row["rol"])),
+            activo=bool(row.get("activo", True)),
             created_at=datetime.fromisoformat(str(row["created_at"])),
         )
 
