@@ -139,13 +139,20 @@ Login con bcrypt (factor 12) + emisión de JWT HS256 con claims `sub`, `rol`,
 
 ### 2.5 Registro y consulta de trámite (`/api/tramites/*`)
 
-`rutas/tramites.py` es la ruta más simple del backend: habla directo con
-Supabase (`client.schema("tramite_documentario")`) sin pasar por
-`servicios/` ni `repositorios/` — no sigue todavía la regla de capas del
-resto del sistema (deuda técnica a resolver si el módulo crece). Expone:
-alta (`POST /`), listado por DNI (`GET /{dni}`) y búsqueda por tipo de
-documento + rango de fechas (`GET /{dni}/buscar`). **No tiene tests
-dedicados** (no existe `tests/test_tramites.py`).
+`rutas/tramites.py` habla directo con Supabase
+(`client.schema("tramite_documentario")`) para el alta (`POST /`), el
+listado por DNI (`GET /{dni}`) y la búsqueda por tipo de documento + rango
+de fechas (`GET /{dni}/buscar`) — estos tres endpoints todavía no pasan por
+`servicios/` ni `repositorios/` (deuda técnica preexistente, no resuelta por
+completo). El endpoint de reemplazo (`PATCH /{tramite_id}/reemplazo`, ver
+2.7) sí usa `DocumentoTramitadoRepository` desde `repositorios/`, así que el
+archivo hoy mezcla ambos estilos. **Ya tiene tests** en
+`tests/test_tramites.py` (antes no existía), usando un cliente Supabase
+falso duck-typed porque las tres rutas originales no tienen un punto de
+inyección de dependencias.
+
+`TramiteResponse` incluye `motivo_rechazo` y `fecha_resolucion` (nulos hasta
+que un operador resuelve el trámite — ver 2.7).
 
 ### 2.6 Firma digital de documento (`signature-service`, fuera del backend Python)
 
@@ -171,6 +178,45 @@ dedicados** (no existe `tests/test_tramites.py`).
    `RsaModularVerificationStrategy` y confirma que el certificado embebido
    coincide con la Base 2 (`identity-key-service`) — un documento solo es
    válido si las tres condiciones se cumplen.
+
+### 2.7 Resolución de documentos y reemplazo (entidad revisora, `/api/entidad-simulada/*` y `/api/tramites/*`)
+
+Cierra el ciclo trámite → firma → revisión → resultado.
+
+1. **Resolver** (`PATCH /api/entidad-simulada/documentos/{id}/resolucion`,
+   gateado por `require_roles(admin, operador)`, mismo alcance por
+   dependencia que ya aplicaba a verificar/descargar/borrar):
+   `EntidadSimuladaFacade.resolver_documento` exige un motivo en texto plano
+   solo si `decision == "RECHAZADO"`, y delega en
+   `DocumentoTramitadoRepository.actualizar_resolucion`, cuyo `UPDATE` está
+   condicionado a `WHERE estado_documento = 'EN TRAMITE'` — si no afecta
+   ninguna fila (porque ya se resolvió, incluida una carrera entre dos
+   operadores), la fachada lanza `DocumentoYaResueltoError` (409). Una
+   resolución es definitiva: no existe endpoint de reversión para ningún
+   rol.
+2. **Consultar** (`GET /api/tramites/{dni}` y `.../buscar`, sin cambios de
+   ruta): `TramiteResponse` ya trae `motivo_rechazo`/`fecha_resolucion`
+   poblados cuando corresponde, sin exponer identidad del operador.
+3. **Reemplazar** (`PATCH /api/tramites/{tramite_id}/reemplazo`, sin JWT —
+   sigue el flujo público de ciudadano, igual que el resto de `tramites.py`):
+   solo permitido si el trámite está `RECHAZADO` y la fecha actual no supera
+   `fecha_respuesta` (el plazo, fijado desde el registro original, no desde
+   la resolución). `DocumentoTramitadoRepository.actualizar_reemplazo`
+   reabre el mismo trámite a `EN TRAMITE` (no crea uno nuevo) y limpia
+   `motivo_rechazo`/`fecha_resolucion`.
+
+`DocumentoTramitadoRepository` (antes definida dentro de
+`rutas/entidad_simulada.py`) se reubicó a
+`backend/src/repositorios/documento_tramitado_repo.py` para que
+`entidad_simulada.py` y `tramites.py` compartan la misma escritura sobre
+`documentos_tramitados` sin que un módulo de `rutas/` importe una clase
+"repositorio" definida en otro módulo de `rutas/`. No tiene un adaptador en
+memoria formal — los tests usan un fake duck-typed (`_FakeRepo` en
+`test_entidad_simulada.py`), igual que antes de esta reubicación.
+
+No se implementó ninguna notificación por correo al operador cuando se
+firma un documento — decisión explícita: revisar la bandeja de pendientes
+es responsabilidad activa del rol operador.
 
 ---
 
@@ -263,6 +309,13 @@ Los adaptadores `RepositorioSolicitudSupabase` / `RepositorioSolicitudEnMemoria`
 tecnología (cliente PostgREST de Supabase, diccionario en memoria). El
 servicio no distingue cuál usa (DIP): en tests se inyecta el de memoria sin
 credenciales; en producción, el de Supabase.
+
+`backend/src/repositorios/documento_tramitado_repo.py`
+(`DocumentoTramitadoRepository`) sigue el mismo rol para
+`documentos_tramitados`, compartido por `rutas/entidad_simulada.py` y
+`rutas/tramites.py` (ver 2.7) — pero, a diferencia de los anteriores, no
+tiene un adaptador en memoria formal; sus tests usan un fake duck-typed
+definido directamente en el archivo de test.
 
 ### 3.3 De comportamiento
 
