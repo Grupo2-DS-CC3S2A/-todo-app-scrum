@@ -46,6 +46,18 @@ jobs:
           supabase migration repair --status reverted 20260628230000
           supabase db push
 
+      # signature-service se despliega en un workflow aparte (docker-ci-firma.yml),
+      # en otra region. Se resuelve su URL real en vez de hardcodearla o
+      # depender de un secreto que haya que actualizar a mano si se re-despliega.
+      - name: Obtener URL del signature-service ya desplegado
+        id: get-signature-url
+        run: |
+          URL=$(gcloud run services describe signature-service \
+            --region europe-west1 \
+            --project ${{ env.PROJECT_ID }} \
+            --format='value(status.url)')
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
       # Enviar el código directamente a Cloud Build y Cloud Run inyectando los Secrets de GitHub
       - name: Construir y Desplegar en Cloud Run
         run: |
@@ -55,4 +67,4 @@ jobs:
             --port 8000 \
             --allow-unauthenticated \
             --project ${{ env.PROJECT_ID }} \
-            --set-env-vars "^##^CORS_ORIGINS=${{ secrets.CORS_ORIGINS }}##SECRET_KEY_JWT=${{ secrets.SECRET_KEY_JWT }}##SUPABASE_URL=${{ secrets.SUPABASE_URL }}##SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
+            --set-env-vars "^##^CORS_ORIGINS=${{ secrets.CORS_ORIGINS }}##SECRET_KEY_JWT=${{ secrets.SECRET_KEY_JWT }}##SUPABASE_URL=${{ secrets.SUPABASE_URL }}##SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}##SIGNATURE_SERVICE_URL=${{ steps.get-signature-url.outputs.url }}"
