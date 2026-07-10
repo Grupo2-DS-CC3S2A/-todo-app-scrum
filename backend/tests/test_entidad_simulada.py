@@ -14,7 +14,11 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from src.excepciones.errors import PermisoDenegadoError
+from src.excepciones.errors import (
+    DocumentoYaResueltoError,
+    MotivoRechazoRequeridoError,
+    PermisoDenegadoError,
+)
 from src.main import app
 from src.modelos.usuario import RolUsuario, Usuario
 from src.repositorios.usuario_repo import RepositorioUsuarioEnMemoria
@@ -101,7 +105,11 @@ class _FakeRepo:
     ``DocumentoTramitadoRepository`` sin tocar Supabase."""
 
     def __init__(self, documentos: list[dict]) -> None:
-        self._documentos = documentos
+        # Copia profunda de cada fila: ``actualizar_resolucion`` muta el
+        # dict in-place, y las filas de ``_DOCUMENTOS`` son compartidas a
+        # nivel de modulo entre tests -- sin esta copia, un test dejaria
+        # "sucio" el estado para el siguiente.
+        self._documentos = [dict(d) for d in documentos]
         self.llamadas_por_dependencia: list[str] = []
         self.llamo_listar_todos = False
 
@@ -118,6 +126,21 @@ class _FakeRepo:
 
     def borrar_por_id(self, tramite_id: int) -> None:
         self._documentos = [d for d in self._documentos if d["id"] != tramite_id]
+
+    def actualizar_resolucion(
+        self,
+        tramite_id: int,
+        estado_documento: str,
+        motivo_rechazo: str | None,
+        fecha_resolucion: str,
+    ) -> dict | None:
+        documento = next((d for d in self._documentos if d["id"] == tramite_id), None)
+        if documento is None or documento["estado_documento"] != "EN TRAMITE":
+            return None
+        documento["estado_documento"] = estado_documento
+        documento["motivo_rechazo"] = motivo_rechazo
+        documento["fecha_resolucion"] = fecha_resolucion
+        return dict(documento)
 
 
 class _FakeSignatureAdapter:
@@ -143,6 +166,8 @@ _DOCUMENTOS = [
         "fecha_tramite": "2026-07-01",
         "fecha_respuesta": "2026-07-31",
         "contenedor": "http://signature/api/documentos/1/download-signed",
+        "motivo_rechazo": None,
+        "fecha_resolucion": None,
     },
     {
         "id": 2,
@@ -152,6 +177,8 @@ _DOCUMENTOS = [
         "fecha_tramite": "2026-07-02",
         "fecha_respuesta": "2026-08-01",
         "contenedor": "http://signature/api/documentos/2/download-signed",
+        "motivo_rechazo": None,
+        "fecha_resolucion": None,
     },
 ]
 
@@ -286,3 +313,102 @@ class TestAccesoPorDocumentoIndividual:
 
         assert filename == "documento_10001.zip"
         assert len(contenido) > 0
+
+
+class TestResolucionDocumento:
+    """Resolver un documento: aceptar/rechazar, motivo obligatorio en
+    rechazo, alcance por dependencia, y que una resolucion ya tomada no
+    pueda repetirse (ni en carrera)."""
+
+    def test_aceptar_documento_en_tramite(
+        self, facade: tuple[EntidadSimuladaFacade, _FakeRepo]
+    ) -> None:
+        instancia, _ = facade
+        operador = _usuario(RolUsuario.OPERADOR, dependencia_asignada="Tesoreria")
+
+        resultado = instancia.resolver_documento(1, "ACEPTADO", None, operador)
+
+        assert resultado.estado_documento == "ACEPTADO"
+        assert resultado.motivo_rechazo is None
+        assert resultado.fecha_resolucion is not None
+
+    def test_rechazar_sin_motivo_lanza_motivo_requerido(
+        self, facade: tuple[EntidadSimuladaFacade, _FakeRepo]
+    ) -> None:
+        instancia, _ = facade
+        operador = _usuario(RolUsuario.OPERADOR, dependencia_asignada="Tesoreria")
+
+        with pytest.raises(MotivoRechazoRequeridoError):
+            instancia.resolver_documento(1, "RECHAZADO", None, operador)
+
+    def test_rechazar_con_motivo_en_blanco_lanza_motivo_requerido(
+        self, facade: tuple[EntidadSimuladaFacade, _FakeRepo]
+    ) -> None:
+        instancia, _ = facade
+        operador = _usuario(RolUsuario.OPERADOR, dependencia_asignada="Tesoreria")
+
+        with pytest.raises(MotivoRechazoRequeridoError):
+            instancia.resolver_documento(1, "RECHAZADO", "   ", operador)
+
+    def test_rechazar_con_motivo_deja_estado_y_motivo(
+        self, facade: tuple[EntidadSimuladaFacade, _FakeRepo]
+    ) -> None:
+        instancia, _ = facade
+        operador = _usuario(RolUsuario.OPERADOR, dependencia_asignada="Tesoreria")
+
+        resultado = instancia.resolver_documento(
+            1, "RECHAZADO", "Falta firma legal", operador
+        )
+
+        assert resultado.estado_documento == "RECHAZADO"
+        assert resultado.motivo_rechazo == "Falta firma legal"
+        assert resultado.fecha_resolucion is not None
+
+    def test_resolver_documento_ya_resuelto_lanza_ya_resuelto(
+        self, facade: tuple[EntidadSimuladaFacade, _FakeRepo]
+    ) -> None:
+        instancia, _ = facade
+        operador = _usuario(RolUsuario.OPERADOR, dependencia_asignada="Tesoreria")
+
+        instancia.resolver_documento(1, "ACEPTADO", None, operador)
+
+        with pytest.raises(DocumentoYaResueltoError):
+            instancia.resolver_documento(1, "RECHAZADO", "otro intento", operador)
+
+    def test_operador_no_puede_resolver_documento_de_otra_dependencia(
+        self, facade: tuple[EntidadSimuladaFacade, _FakeRepo]
+    ) -> None:
+        instancia, repo = facade
+        operador = _usuario(RolUsuario.OPERADOR, dependencia_asignada="Tesoreria")
+
+        with pytest.raises(PermisoDenegadoError):
+            instancia.resolver_documento(2, "ACEPTADO", None, operador)
+        assert repo.obtener_por_id(2)["estado_documento"] == "EN TRAMITE"
+
+    def test_admin_puede_resolver_documento_de_cualquier_dependencia(
+        self, facade: tuple[EntidadSimuladaFacade, _FakeRepo]
+    ) -> None:
+        instancia, _ = facade
+        admin = _usuario(RolUsuario.ADMIN)
+
+        resultado = instancia.resolver_documento(2, "ACEPTADO", None, admin)
+
+        assert resultado.estado_documento == "ACEPTADO"
+
+    def test_dos_resoluciones_casi_simultaneas_solo_una_tiene_efecto(
+        self, facade: tuple[EntidadSimuladaFacade, _FakeRepo]
+    ) -> None:
+        """Simula la carrera entre dos operadores: dos llamadas al
+        repositorio sobre el mismo tramite, sin que la segunda vuelva a
+        leer el estado actualizado primero -- el guard `WHERE
+        estado_documento = 'EN TRAMITE'` debe hacer que solo la primera
+        tenga efecto."""
+        _, repo = facade
+
+        primera = repo.actualizar_resolucion(1, "ACEPTADO", None, "2026-07-09")
+        segunda = repo.actualizar_resolucion(1, "RECHAZADO", "tarde", "2026-07-09")
+
+        assert primera is not None
+        assert primera["estado_documento"] == "ACEPTADO"
+        assert segunda is None
+        assert repo.obtener_por_id(1)["estado_documento"] == "ACEPTADO"
