@@ -12,6 +12,8 @@ export interface TramiteDb {
   readonly fecha_tramite: string;
   readonly fecha_respuesta: string;
   readonly contenedor: string;
+  readonly motivo_rechazo?: string | null;
+  readonly fecha_resolucion?: string | null;
 }
 
 export interface RegistrarTramitePayload {
@@ -54,6 +56,28 @@ export async function registrarTramite(
   return (await response.json()) as TramiteDb;
 }
 
+
+export interface ReemplazarTramitePayload {
+  readonly dni: string;
+  readonly contenedor: string;
+}
+
+export async function reemplazarTramite(
+  tramiteId: number,
+  payload: ReemplazarTramitePayload,
+): Promise<TramiteDb> {
+  const response = await fetch(`${API_BASE_URL}/api/tramites/${tramiteId}/reemplazo`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) throw await parseError(response);
+
+  return (await response.json()) as TramiteDb;
+}
 
 export async function buscarTramites(params: {
   dni: string;

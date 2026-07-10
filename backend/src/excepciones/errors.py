@@ -86,6 +86,34 @@ class DocumentoInvalidoError(DominioVotacionError):
     http_status: int = status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
+class DocumentoYaResueltoError(DominioVotacionError):
+    """El documento ya fue resuelto (ACEPTADO o RECHAZADO) y no puede
+    resolverse de nuevo, ni siquiera por un admin."""
+
+    http_status: int = status.HTTP_409_CONFLICT
+
+
+class MotivoRechazoRequeridoError(DominioVotacionError):
+    """Se intento rechazar un documento sin proveer un motivo en texto
+    plano."""
+
+    http_status: int = status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+class TramiteNoReemplazableError(DominioVotacionError):
+    """Se intento registrar un documento de reemplazo sobre un tramite que
+    no esta en estado RECHAZADO."""
+
+    http_status: int = status.HTTP_409_CONFLICT
+
+
+class PlazoVencidoError(DominioVotacionError):
+    """El plazo (fecha_respuesta) del tramite original ya vencio: no admite
+    mas reemplazos."""
+
+    http_status: int = status.HTTP_409_CONFLICT
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     """Registra los handlers HTTP para las excepciones de dominio.
 

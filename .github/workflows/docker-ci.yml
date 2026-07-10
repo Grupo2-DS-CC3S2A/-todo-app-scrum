@@ -3,8 +3,7 @@ name: Deploy Backend to Cloud Run
 on:
   push:
     branches:
-      - feature/MDP-41-despliegue-de-backend
-      - developer
+      - '**'
 
 env:
   PROJECT_ID: 'mesa-de-partes-501300'

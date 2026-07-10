@@ -10,6 +10,7 @@ import {
 import {
   buscarTramites,
   registrarTramite,
+  reemplazarTramite,
   type TipoDocumento,
   type TramiteDb,
 } from "@/api/tramitesApi";
@@ -51,12 +52,30 @@ function requiereSesion(screen: Screen): boolean {
   return screen !== "status" && screen !== "validation";
 }
 
+interface ModoReemplazo {
+  readonly tramiteId: number;
+  readonly dependencia: string;
+  readonly tipoDocumento: TipoDocumento;
+}
+
 export default function App(): ReactElement {
   const [screen, setScreen] = useState<Screen>("status");
   const [user, setUser] = useState<CiudadanoValidado | null>(null);
   const [message, setMessage] = useState<AppMessage | null>(null);
   const [termsOpen, setTermsOpen] = useState<boolean>(false);
   const [registrationStep, setRegistrationStep] = useState<1 | 2>(1);
+  const [modoReemplazo, setModoReemplazo] = useState<ModoReemplazo | null>(null);
+
+  const iniciarReemplazo = (tramite: TramiteDb): void => {
+    setModoReemplazo({
+      tramiteId: tramite.id,
+      dependencia: tramite.dependencia,
+      tipoDocumento: tramite.tipo_documento,
+    });
+    setRegistrationStep(1);
+    setMessage(null);
+    setScreen("registration");
+  };
 
   const showScreen = (nextScreen: Screen): void => {
     if (requiereSesion(nextScreen) && !user) {
@@ -125,7 +144,9 @@ export default function App(): ReactElement {
 
         {screen === "dashboard" && <DashboardScreen userName={fullName(user)} onNavigate={showScreen} />}
 
-        {screen === "inbox" && <InboxScreen dni={user?.dni ?? ""} />}
+        {screen === "inbox" && (
+          <InboxScreen dni={user?.dni ?? ""} onIniciarReemplazo={iniciarReemplazo} />
+        )}
 
         {screen === "entidad-simulada" && <EntidadSimuladaGate />}
 
@@ -134,10 +155,14 @@ export default function App(): ReactElement {
             step={registrationStep}
             setStep={setRegistrationStep}
             dni={user?.dni ?? ""}
+            modoReemplazo={modoReemplazo ?? undefined}
             onRegistered={() => {
+              setModoReemplazo(null);
               setMessage({
                 kind: "success",
-                text: "Documento firmado y tramite registrado correctamente.",
+                text: modoReemplazo
+                  ? "Documento de reemplazo firmado y registrado correctamente."
+                  : "Documento firmado y tramite registrado correctamente.",
               });
             }}
           />
@@ -414,7 +439,13 @@ function formatDate(value: string): string {
   return `${day}/${month}/${year}`;
 }
 
-function InboxScreen({ dni }: { readonly dni: string }): ReactElement {
+function InboxScreen({
+  dni,
+  onIniciarReemplazo,
+}: {
+  readonly dni: string;
+  readonly onIniciarReemplazo: (tramite: TramiteDb) => void;
+}): ReactElement {
   const [resultados, setResultados] = useState<readonly TramiteDb[]>([]);
   const [tipoDocumento, setTipoDocumento] = useState<TipoDocumento>("CARTA");
   const [fechaDesde, setFechaDesde] = useState<string>(todayIsoDate());
@@ -553,18 +584,44 @@ function InboxScreen({ dni }: { readonly dni: string }): ReactElement {
               <th>Dependencia</th>
               <th>Estado documento</th>
               <th>Fecha de respuesta</th>
+              <th>Motivo de rechazo</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {resultados.map((doc) => (
-              <tr key={doc.id}>
-                <td>{doc.nro_documento}</td>
-                <td>{doc.tipo_documento}</td>
-                <td>{doc.dependencia}</td>
-                <td>{doc.estado_documento}</td>
-                <td>{formatDate(doc.fecha_respuesta)}</td>
-              </tr>
-            ))}
+            {resultados.map((doc) => {
+              const puedeReemplazar =
+                doc.estado_documento === "RECHAZADO" &&
+                doc.fecha_respuesta >= todayIsoDate();
+
+              return (
+                <tr key={doc.id}>
+                  <td>{doc.nro_documento}</td>
+                  <td>{doc.tipo_documento}</td>
+                  <td>{doc.dependencia}</td>
+                  <td>{doc.estado_documento}</td>
+                  <td>{formatDate(doc.fecha_respuesta)}</td>
+                  <td>
+                    {doc.estado_documento === "RECHAZADO" && doc.motivo_rechazo
+                      ? doc.motivo_rechazo
+                      : "—"}
+                  </td>
+                  <td>
+                    {puedeReemplazar ? (
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => onIniciarReemplazo(doc)}
+                      >
+                        Registrar reemplazo
+                      </button>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}
@@ -576,16 +633,20 @@ function RegistrationScreen({
   step,
   setStep,
   dni,
+  modoReemplazo,
   onRegistered,
 }: {
   readonly step: 1 | 2;
   readonly setStep: (step: 1 | 2) => void;
   readonly dni: string;
+  readonly modoReemplazo: ModoReemplazo | undefined;
   readonly onRegistered: (signedDocument: SignedDocumentResponse) => void;
 }): ReactElement {
   const [email, setEmail] = useState<string>("cesarlopezarteaga@gmail.com");
   const [mobile, setMobile] = useState<string>("931157261");
-  const [documentType, setDocumentType] = useState<TipoDocumento>("CARTA");
+  const [documentType, setDocumentType] = useState<TipoDocumento>(
+    modoReemplazo?.tipoDocumento ?? "CARTA",
+  );
   const [dependencias, setDependencias] = useState<readonly DependenciaDb[]>([]);
   const [dependenciaId, setDependenciaId] = useState<string>("");
   const [loadingDependencias, setLoadingDependencias] = useState<boolean>(false);
@@ -627,7 +688,7 @@ function RegistrationScreen({
       return;
     }
 
-    if (!dependenciaId) {
+    if (!modoReemplazo && !dependenciaId) {
       alert("Seleccione la dependencia donde se dirige.");
       return;
     }
@@ -637,9 +698,9 @@ function RegistrationScreen({
       return;
     }
 
-    const dependenciaSeleccionada = dependencias.find(
-      (dependencia) => String(dependencia.id) === dependenciaId,
-    );
+    const dependenciaSeleccionada = modoReemplazo
+      ? { nombre: modoReemplazo.dependencia }
+      : dependencias.find((dependencia) => String(dependencia.id) === dependenciaId);
 
     if (!dependenciaSeleccionada) {
       alert("La dependencia seleccionada no es valida.");
@@ -660,12 +721,19 @@ function RegistrationScreen({
 
       const contenedorUrl = buildSignedDownloadUrl(signedDocument.downloadSignedUrl);
 
-      await registrarTramite({
-        dni,
-        tipo_documento: documentType,
-        dependencia: dependenciaSeleccionada.nombre,
-        contenedor: contenedorUrl,
-      });
+      if (modoReemplazo) {
+        await reemplazarTramite(modoReemplazo.tramiteId, {
+          dni,
+          contenedor: contenedorUrl,
+        });
+      } else {
+        await registrarTramite({
+          dni,
+          tipo_documento: documentType,
+          dependencia: dependenciaSeleccionada.nombre,
+          contenedor: contenedorUrl,
+        });
+      }
 
       console.log("Documento firmado digitalmente", {
         email,
@@ -749,11 +817,20 @@ function RegistrationScreen({
         <div>
           <h3>Datos del Documento</h3>
 
+          {modoReemplazo && (
+            <p className="field-help">
+              Estás registrando un documento de reemplazo para un trámite ya
+              rechazado. El tipo de documento y la dependencia quedan fijos,
+              igual que en el trámite original.
+            </p>
+          )}
+
           <div className="form-group">
             <label htmlFor="document-type">Tipo de Documento</label>
             <select
               id="document-type"
               value={documentType}
+              disabled={!!modoReemplazo}
               onChange={(e) => {
                 setDocumentType(e.target.value as TipoDocumento);
                 setSignedFeedback(null);
@@ -765,28 +842,40 @@ function RegistrationScreen({
             </select>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="document-dependency">Dependencia donde se dirige</label>
-            <select
-              id="document-dependency"
-              value={dependenciaId}
-              onChange={(e) => {
-                setDependenciaId(e.target.value);
-                setSignedFeedback(null);
-              }}
-              disabled={loadingDependencias || signing}
-            >
-              <option value="" disabled>
-                {loadingDependencias ? "Cargando dependencias..." : "Seleccione una dependencia"}
-              </option>
-
-              {dependencias.map((dependencia) => (
-                <option key={dependencia.id} value={dependencia.id}>
-                  {dependencia.nombre}
+          {modoReemplazo ? (
+            <div className="form-group">
+              <label htmlFor="document-dependency">Dependencia donde se dirige</label>
+              <input
+                id="document-dependency"
+                type="text"
+                value={modoReemplazo.dependencia}
+                disabled
+              />
+            </div>
+          ) : (
+            <div className="form-group">
+              <label htmlFor="document-dependency">Dependencia donde se dirige</label>
+              <select
+                id="document-dependency"
+                value={dependenciaId}
+                onChange={(e) => {
+                  setDependenciaId(e.target.value);
+                  setSignedFeedback(null);
+                }}
+                disabled={loadingDependencias || signing}
+              >
+                <option value="" disabled>
+                  {loadingDependencias ? "Cargando dependencias..." : "Seleccione una dependencia"}
                 </option>
-              ))}
-            </select>
-          </div>
+
+                {dependencias.map((dependencia) => (
+                  <option key={dependencia.id} value={dependencia.id}>
+                    {dependencia.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="form-group">
             <label htmlFor="document-file">Archivo Principal (PDF)</label>

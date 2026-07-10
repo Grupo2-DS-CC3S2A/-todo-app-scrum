@@ -6,7 +6,11 @@ export interface DocumentoEntidad {
   readonly fecha_tramite: string;
   readonly fecha_respuesta: string;
   readonly contenedor: string;
+  readonly motivo_rechazo?: string | null;
+  readonly fecha_resolucion?: string | null;
 }
+
+export type DecisionResolucion = "ACEPTADO" | "RECHAZADO";
 
 export interface VerificacionFirmaResult {
   readonly tramite_id: number;
@@ -87,6 +91,31 @@ export async function verificarFirmaEntidad(
   }
 
   return (await response.json()) as VerificacionFirmaResult;
+}
+
+export async function resolverDocumentoEntidad(
+  tramiteId: number,
+  decision: DecisionResolucion,
+  motivo: string | null,
+  token: string,
+): Promise<DocumentoEntidad> {
+  const response = await fetch(
+    buildUrl(`/api/entidad-simulada/documentos/${tramiteId}/resolucion`),
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(token),
+      },
+      body: JSON.stringify({ decision, motivo }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+
+  return (await response.json()) as DocumentoEntidad;
 }
 
 export async function borrarDocumentoEntidad(

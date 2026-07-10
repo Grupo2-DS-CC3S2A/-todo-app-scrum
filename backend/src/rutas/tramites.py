@@ -8,6 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from supabase import Client, create_client
 
 from src.config import settings
+from src.excepciones.errors import PlazoVencidoError, TramiteNoReemplazableError
+from src.repositorios.documento_tramitado_repo import DocumentoTramitadoRepository
 
 
 class TramiteCreateRequest(BaseModel):
@@ -30,6 +32,15 @@ class TramiteResponse(BaseModel):
     estado_documento: str
     fecha_tramite: date
     fecha_respuesta: date
+    contenedor: str
+    motivo_rechazo: str | None = None
+    fecha_resolucion: date | None = None
+
+
+class TramiteReemplazoRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    dni: str = Field(..., min_length=8, max_length=8)
     contenedor: str
 
 
@@ -160,3 +171,34 @@ async def buscar_tramites(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No se pudo realizar la búsqueda de trámites.",
         ) from exc
+
+
+@router.patch("/{tramite_id}/reemplazo", response_model=TramiteResponse)
+async def reemplazar_tramite(
+    tramite_id: int, payload: TramiteReemplazoRequest
+) -> TramiteResponse:
+    repository = DocumentoTramitadoRepository(get_client())
+
+    documento = repository.obtener_por_id(tramite_id)
+    if documento is None or documento.get("dni") != payload.dni:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No existe el trámite indicado para ese DNI.",
+        )
+
+    if documento["estado_documento"] != "RECHAZADO":
+        raise TramiteNoReemplazableError(
+            "Solo se puede reemplazar un documento en estado RECHAZADO."
+        )
+
+    fecha_respuesta = date.fromisoformat(str(documento["fecha_respuesta"]))
+    if date.today() > fecha_respuesta:
+        raise PlazoVencidoError("El plazo para reemplazar este documento ya venció.")
+
+    actualizado = repository.actualizar_reemplazo(tramite_id, payload.contenedor)
+    if actualizado is None:
+        raise TramiteNoReemplazableError(
+            "El documento ya no está disponible para reemplazo."
+        )
+
+    return TramiteResponse(**actualizado)

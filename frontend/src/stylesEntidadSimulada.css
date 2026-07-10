@@ -147,3 +147,22 @@
   color: #991b1b;
   border: 1px solid #fca5a5;
 }
+
+.entidad-rechazo-form {
+  margin-top: 18px;
+  padding: 16px 20px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #f9fafb;
+}
+
+.entidad-textarea {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
