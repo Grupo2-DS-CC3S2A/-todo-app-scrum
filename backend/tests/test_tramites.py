@@ -33,15 +33,24 @@ class _FakeQuery:
     """Duck-typed query builder: soporta tanto el encadenado de lectura
     (``select().eq()...``) como el de escritura (``update().eq()...``),
     mutando in-place las mismas filas que sostiene ``_FakeTable`` para que
-    un ``obtener_por_id`` posterior en el mismo test vea el cambio."""
+    un ``obtener_por_id`` posterior en el mismo test vea el cambio.
+
+    A diferencia de una version mas ingenua, ``select(columnas)`` SI recorta
+    las filas devueltas a exactamente esas columnas (igual que PostgREST) --
+    de lo contrario un ``_COLUMNAS`` incompleto en el repositorio real nunca
+    se notaria en los tests, solo en produccion."""
 
     def __init__(
         self, rows: list[dict[str, Any]], patch: dict[str, Any] | None = None
     ) -> None:
         self._rows = rows
         self._patch = patch
+        self._columnas: list[str] | None = None
 
-    def select(self, *_args: Any, **_kwargs: Any) -> "_FakeQuery":
+    def select(self, columnas: str = "*", *_args: Any, **_kwargs: Any) -> "_FakeQuery":
+        self._columnas = (
+            None if columnas == "*" else [c.strip() for c in columnas.split(",")]
+        )
         return self
 
     def eq(self, campo: str, valor: Any) -> "_FakeQuery":
@@ -67,15 +76,18 @@ class _FakeQuery:
         if self._patch is not None:
             for row in self._rows:
                 row.update(self._patch)
-        return _FakeResult([dict(r) for r in self._rows])
+        rows = [dict(r) for r in self._rows]
+        if self._columnas is not None:
+            rows = [{col: r.get(col) for col in self._columnas} for r in rows]
+        return _FakeResult(rows)
 
 
 class _FakeTable:
     def __init__(self, rows: list[dict[str, Any]]) -> None:
         self._rows = rows
 
-    def select(self, *_args: Any, **_kwargs: Any) -> _FakeQuery:
-        return _FakeQuery(list(self._rows))
+    def select(self, columnas: str = "*", *_args: Any, **_kwargs: Any) -> _FakeQuery:
+        return _FakeQuery(list(self._rows)).select(columnas)
 
     def update(self, patch: dict[str, Any]) -> _FakeQuery:
         return _FakeQuery(list(self._rows), patch=patch)

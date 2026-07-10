@@ -12,7 +12,7 @@ class DocumentoTramitadoRepository:
         self.client = client
 
     _COLUMNAS = (
-        "id,dni,dependencia,nro_documento,estado_documento,"
+        "id,dni,dependencia,nro_documento,tipo_documento,estado_documento,"
         "fecha_tramite,fecha_respuesta,contenedor,"
         "motivo_rechazo,fecha_resolucion"
     )
