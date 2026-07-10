@@ -65,6 +65,7 @@ export default function App(): ReactElement {
   const [termsOpen, setTermsOpen] = useState<boolean>(false);
   const [registrationStep, setRegistrationStep] = useState<1 | 2>(1);
   const [modoReemplazo, setModoReemplazo] = useState<ModoReemplazo | null>(null);
+  const { isAutenticado, cerrarSesion: cerrarSesionEntidad } = useAuth();
 
   const iniciarReemplazo = (tramite: TramiteDb): void => {
     setModoReemplazo({
@@ -88,6 +89,21 @@ export default function App(): ReactElement {
 
     setMessage(null);
     setScreen(nextScreen);
+  };
+
+  const salirDeEntidadSimulada = (): void => {
+    cerrarSesionEntidad();
+    setMessage(null);
+    setScreen(user ? "dashboard" : "status");
+  };
+
+  const salirDelSistema = (): void => {
+    if (isAutenticado) cerrarSesionEntidad();
+    setUser(null);
+    setModoReemplazo(null);
+    setRegistrationStep(1);
+    setMessage(null);
+    setScreen("status");
   };
 
   return (
@@ -121,6 +137,9 @@ export default function App(): ReactElement {
         </div>
         <div className="user-info">
           {user ? `DNI: ${user.dni} | ${fullName(user)}` : "DNI: 066XXXXX | USUARIO NO VALIDADO"}
+          <button type="button" className="btn-salir" onClick={salirDelSistema}>
+            Salir
+          </button>
         </div>
       </nav>
 
@@ -148,7 +167,9 @@ export default function App(): ReactElement {
           <InboxScreen dni={user?.dni ?? ""} onIniciarReemplazo={iniciarReemplazo} />
         )}
 
-        {screen === "entidad-simulada" && <EntidadSimuladaGate />}
+        {screen === "entidad-simulada" && (
+          <EntidadSimuladaGate onSalir={salirDeEntidadSimulada} />
+        )}
 
         {screen === "registration" && (
           <RegistrationScreen
@@ -182,7 +203,7 @@ export default function App(): ReactElement {
   );
 }
 
-function EntidadSimuladaGate(): ReactElement {
+function EntidadSimuladaGate({ onSalir }: { readonly onSalir: () => void }): ReactElement {
   const { isAutenticado, cargando, sesion } = useAuth();
 
   if (cargando) {
@@ -204,11 +225,18 @@ function EntidadSimuladaGate(): ReactElement {
           Esta seccion es exclusiva para personal de la entidad revisora
           (administrador u operador). Su cuenta no tiene ese rol.
         </div>
+        <div className="flex-end mt-20">
+          <button type="button" className="btn btn-secondary" onClick={onSalir}>
+            Cerrar sesion
+          </button>
+        </div>
       </section>
     );
   }
 
-  return <EntidadSimuladaView usuario={sesion.usuario} token={sesion.token} />;
+  return (
+    <EntidadSimuladaView usuario={sesion.usuario} token={sesion.token} onCerrarSesion={onSalir} />
+  );
 }
 
 function ValidationScreen({

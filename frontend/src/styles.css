@@ -99,6 +99,25 @@ textarea {
 .user-info {
   font-size: 0.8rem;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-salir {
+  color: var(--white);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-salir:hover {
+  background-color: var(--secondary-color);
+  border-color: var(--secondary-color);
 }
 
 .container {

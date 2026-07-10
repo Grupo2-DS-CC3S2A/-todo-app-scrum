@@ -16,11 +16,13 @@ import "../stylesEntidadSimulada.css";
 interface EntidadSimuladaViewProps {
   readonly usuario: UsuarioPublico;
   readonly token: string;
+  readonly onCerrarSesion: () => void;
 }
 
 export function EntidadSimuladaView({
   usuario,
   token,
+  onCerrarSesion,
 }: EntidadSimuladaViewProps): JSX.Element {
   const esOperador = usuario.rol === "operador";
 
@@ -106,6 +108,11 @@ export function EntidadSimuladaView({
           <div className="entidad-message entidad-message-error">
             Su cuenta de operador no tiene una dependencia asignada. Contacte al
             administrador para poder revisar documentos.
+          </div>
+          <div className="flex-end mt-20">
+            <button type="button" className="btn btn-secondary" onClick={onCerrarSesion}>
+              Cerrar sesion
+            </button>
           </div>
         </section>
       </main>
@@ -267,6 +274,15 @@ export function EntidadSimuladaView({
   return (
     <main className="entidad-page">
       <section className="entidad-card">
+        <div className="entidad-header-bar">
+          <span className="entidad-usuario-info">
+            {usuario.username} ({usuario.rol})
+          </span>
+          <button type="button" className="btn btn-secondary" onClick={onCerrarSesion}>
+            Cerrar sesion
+          </button>
+        </div>
+
         <div className="entidad-review-box">
           {esOperador ? (
             <p className="entidad-label">
