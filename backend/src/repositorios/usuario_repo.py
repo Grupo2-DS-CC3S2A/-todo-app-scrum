@@ -62,7 +62,7 @@ class UsuarioRepository(ABC):
 
     @abstractmethod
     def actualizar(self, usuario: Usuario) -> Usuario:
-        """Persiste cambios sobre un usuario existente (rol, activo).
+        """Persiste cambios sobre un usuario existente (rol, activo, dependencia).
 
         Raises:
             UsuarioNoEncontradoError: Si no existe.
@@ -172,6 +172,7 @@ class RepositorioUsuarioSupabase(UsuarioRepository):
                     "password_hash": usuario.password_hash,
                     "rol": usuario.rol.value,
                     "activo": usuario.activo,
+                    "dependencia_asignada": usuario.dependencia_asignada,
                     "created_at": usuario.created_at.isoformat(),
                 }
             ).execute()
@@ -234,7 +235,13 @@ class RepositorioUsuarioSupabase(UsuarioRepository):
     def actualizar(self, usuario: Usuario) -> Usuario:
         response = (
             self._client.table("usuarios")
-            .update({"rol": usuario.rol.value, "activo": usuario.activo})
+            .update(
+                {
+                    "rol": usuario.rol.value,
+                    "activo": usuario.activo,
+                    "dependencia_asignada": usuario.dependencia_asignada,
+                }
+            )
             .eq("id", usuario.id)
             .execute()
         )
@@ -250,6 +257,7 @@ class RepositorioUsuarioSupabase(UsuarioRepository):
             password_hash=str(row["password_hash"]),
             rol=RolUsuario(str(row["rol"])),
             activo=bool(row.get("activo", True)),
+            dependencia_asignada=row.get("dependencia_asignada"),
             created_at=datetime.fromisoformat(str(row["created_at"])),
         )
 
