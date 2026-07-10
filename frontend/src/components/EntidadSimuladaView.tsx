@@ -5,6 +5,7 @@ import {
   borrarDocumentoEntidad,
   descargarPaqueteEntidad,
   listarDocumentosEntidad,
+  resolverDocumentoEntidad,
   verificarFirmaEntidad,
   type DocumentoEntidad,
 } from "../api/entidadSimuladaApi";
@@ -32,11 +33,23 @@ export function EntidadSimuladaView({
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mostrarFormularioRechazo, setMostrarFormularioRechazo] = useState(false);
+  const [motivoRechazo, setMotivoRechazo] = useState("");
 
   const documentoSeleccionado = useMemo(
     () => documentos.find((documento) => documento.id === documentoSeleccionadoId) ?? null,
     [documentos, documentoSeleccionadoId],
   );
+
+  const puedeResolver =
+    !!documentoSeleccionado &&
+    !cargando &&
+    documentoSeleccionado.estado_documento === "EN TRAMITE";
+
+  useEffect(() => {
+    setMostrarFormularioRechazo(false);
+    setMotivoRechazo("");
+  }, [documentoSeleccionadoId]);
 
   async function cargarDocumentos(dependencia: string | undefined): Promise<void> {
     setCargando(true);
@@ -190,6 +203,67 @@ export function EntidadSimuladaView({
     }
   }
 
+  async function handleAceptarDocumento(): Promise<void> {
+    if (!documentoSeleccionado) {
+      return;
+    }
+
+    setCargando(true);
+    setMensaje(null);
+    setError(null);
+
+    try {
+      const actualizado = await resolverDocumentoEntidad(
+        documentoSeleccionado.id,
+        "ACEPTADO",
+        null,
+        token,
+      );
+      setDocumentos((current) =>
+        current.map((documento) => (documento.id === actualizado.id ? actualizado : documento)),
+      );
+      setMensaje(`Documento ${actualizado.nro_documento} aceptado.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo aceptar el documento.");
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  async function handleRechazarDocumento(): Promise<void> {
+    if (!documentoSeleccionado) {
+      return;
+    }
+
+    if (!motivoRechazo.trim()) {
+      setError("Debe indicar un motivo para rechazar el documento.");
+      return;
+    }
+
+    setCargando(true);
+    setMensaje(null);
+    setError(null);
+
+    try {
+      const actualizado = await resolverDocumentoEntidad(
+        documentoSeleccionado.id,
+        "RECHAZADO",
+        motivoRechazo.trim(),
+        token,
+      );
+      setDocumentos((current) =>
+        current.map((documento) => (documento.id === actualizado.id ? actualizado : documento)),
+      );
+      setMensaje(`Documento ${actualizado.nro_documento} rechazado.`);
+      setMostrarFormularioRechazo(false);
+      setMotivoRechazo("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo rechazar el documento.");
+    } finally {
+      setCargando(false);
+    }
+  }
+
   return (
     <main className="entidad-page">
       <section className="entidad-card">
@@ -306,7 +380,49 @@ export function EntidadSimuladaView({
           >
             Borrar Documento
           </button>
+
+          <button
+            type="button"
+            className="entidad-action-button"
+            onClick={() => void handleAceptarDocumento()}
+            disabled={!puedeResolver}
+          >
+            Aceptar
+          </button>
+
+          <button
+            type="button"
+            className="entidad-action-button"
+            onClick={() => setMostrarFormularioRechazo((actual) => !actual)}
+            disabled={!puedeResolver}
+          >
+            Rechazar
+          </button>
         </div>
+
+        {mostrarFormularioRechazo ? (
+          <div className="entidad-rechazo-form">
+            <label className="entidad-label" htmlFor="motivo-rechazo">
+              Motivo del rechazo
+            </label>
+            <textarea
+              id="motivo-rechazo"
+              className="entidad-textarea"
+              value={motivoRechazo}
+              onChange={(event) => setMotivoRechazo(event.target.value)}
+              rows={3}
+              required
+            />
+            <button
+              type="button"
+              className="entidad-action-button"
+              onClick={() => void handleRechazarDocumento()}
+              disabled={cargando || !motivoRechazo.trim()}
+            >
+              Confirmar rechazo
+            </button>
+          </div>
+        ) : null}
       </section>
     </main>
   );
