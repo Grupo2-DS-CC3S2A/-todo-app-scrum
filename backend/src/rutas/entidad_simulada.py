@@ -8,15 +8,20 @@ import urllib.error
 import urllib.request
 import zipfile
 from datetime import date
-from typing import Any, cast
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, ConfigDict
 from supabase import Client, create_client
 
 from src.config import settings
-from src.excepciones.errors import PermisoDenegadoError
+from src.excepciones.errors import (
+    DocumentoYaResueltoError,
+    MotivoRechazoRequeridoError,
+    PermisoDenegadoError,
+)
 from src.modelos.usuario import RolUsuario, Usuario
+from src.repositorios.documento_tramitado_repo import DocumentoTramitadoRepository
 from src.rutas.auth_deps import require_roles
 
 SIGNATURE_SERVICE_URL = os.getenv(
@@ -35,6 +40,8 @@ class DocumentoEntidadResponse(BaseModel):
     fecha_tramite: date
     fecha_respuesta: date
     contenedor: str
+    motivo_rechazo: str | None = None
+    fecha_resolucion: date | None = None
 
 
 class VerificacionFirmaResponse(BaseModel):
@@ -47,60 +54,11 @@ class VerificacionFirmaResponse(BaseModel):
     detalle: Any | None = None
 
 
-class DocumentoTramitadoRepository:
-    """Repository Pattern: encapsula el acceso a Supabase."""
+class ResolucionDocumentoRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    def __init__(self, client: Client) -> None:
-        self.client = client
-
-    _COLUMNAS = (
-        "id,dependencia,nro_documento,estado_documento,"
-        "fecha_tramite,fecha_respuesta,contenedor"
-    )
-
-    def listar_por_dependencia(self, dependencia: str) -> list[dict[str, Any]]:
-        response = (
-            self.client.schema("tramite_documentario")
-            .table("documentos_tramitados")
-            .select(self._COLUMNAS)
-            .eq("dependencia", dependencia)
-            .order("fecha_tramite", desc=True)
-            .order("created_at", desc=True)
-            .execute()
-        )
-        return cast(list[dict[str, Any]], response.data or [])
-
-    def listar_todos(self) -> list[dict[str, Any]]:
-        response = (
-            self.client.schema("tramite_documentario")
-            .table("documentos_tramitados")
-            .select(self._COLUMNAS)
-            .order("fecha_tramite", desc=True)
-            .order("created_at", desc=True)
-            .execute()
-        )
-        return cast(list[dict[str, Any]], response.data or [])
-
-    def obtener_por_id(self, tramite_id: int) -> dict[str, Any] | None:
-        response = (
-            self.client.schema("tramite_documentario")
-            .table("documentos_tramitados")
-            .select(self._COLUMNAS)
-            .eq("id", tramite_id)
-            .limit(1)
-            .execute()
-        )
-        rows = cast(list[dict[str, Any]], response.data or [])
-        return rows[0] if rows else None
-
-    def borrar_por_id(self, tramite_id: int) -> None:
-        (
-            self.client.schema("tramite_documentario")
-            .table("documentos_tramitados")
-            .delete()
-            .eq("id", tramite_id)
-            .execute()
-        )
+    decision: Literal["ACEPTADO", "RECHAZADO"]
+    motivo: str | None = None
 
 
 class SignatureServiceAdapter:
@@ -248,6 +206,36 @@ class EntidadSimuladaFacade:
         self._verificar_acceso_dependencia(documento, usuario)
         self.repository.borrar_por_id(tramite_id)
 
+    def resolver_documento(
+        self,
+        tramite_id: int,
+        decision: str,
+        motivo: str | None,
+        usuario: Usuario,
+    ) -> DocumentoEntidadResponse:
+        documento = self._obtener_documento_o_404(tramite_id)
+        self._verificar_acceso_dependencia(documento, usuario)
+
+        motivo_normalizado = (motivo or "").strip()
+        if decision == "RECHAZADO" and not motivo_normalizado:
+            raise MotivoRechazoRequeridoError(
+                "Debe indicar un motivo en texto plano para rechazar el documento."
+            )
+
+        motivo_final = motivo_normalizado if decision == "RECHAZADO" else None
+
+        actualizado = self.repository.actualizar_resolucion(
+            tramite_id,
+            decision,
+            motivo_final,
+            date.today().isoformat(),
+        )
+        if actualizado is None:
+            raise DocumentoYaResueltoError(
+                "El documento ya fue resuelto y no puede resolverse de nuevo."
+            )
+        return DocumentoEntidadResponse(**actualizado)
+
     def _obtener_documento_o_404(self, tramite_id: int) -> dict[str, Any]:
         documento = self.repository.obtener_por_id(tramite_id)
         if documento is None:
@@ -367,3 +355,17 @@ async def borrar_documento_tramitado(
 ) -> Response:
     get_facade().borrar_documento(tramite_id, usuario)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch(
+    "/documentos/{tramite_id}/resolucion",
+    response_model=DocumentoEntidadResponse,
+)
+async def resolver_documento_tramitado(
+    tramite_id: int,
+    payload: ResolucionDocumentoRequest,
+    usuario: Usuario = Depends(_requiere_revisor),
+) -> DocumentoEntidadResponse:
+    return get_facade().resolver_documento(
+        tramite_id, payload.decision, payload.motivo, usuario
+    )
