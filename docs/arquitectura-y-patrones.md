@@ -24,9 +24,9 @@ verificable.
 |---|---|---|
 | Frontend | React + Vite + TypeScript | Vercel — `mdp-frontend-*.vercel.app` |
 | Backend | FastAPI (Python 3.10+) | Google Cloud Run — servicio `todo-app-backend`, proyecto `mesa-de-partes-501300`, `us-central1` |
-| Firma digital | Java 21 + Spring Boot 3.3.5 (`identity-key-service` puerto 8082, `signature-service` puerto 8083) | Solo local (`mvn spring-boot:run` por módulo) — sin CI ni despliegue automatizado todavía |
+| Firma digital | Java 21 + Spring Boot 3.3.5 (`identity-key-service` puerto 8082, `signature-service` puerto 8083) | Google Cloud Run (`europe-west1`), vía `docker-ci-firma.yml` — solo se dispara con cambios en `firma-java/` sobre la rama `developer` |
 | Base de datos | PostgreSQL (Supabase) | Supabase Cloud — schema `public` (`citizens`, `solicitudes`, `dependencias`, `usuarios`), schema `firma_publica` (llaves públicas), schema `tramite_documentario` (`documentos_tramitados`) |
-| CI/CD | GitHub Actions | `ci.yml` (lint + tipos + tests + cobertura ≥85%, solo `backend/`), `docker-ci.yml` (deploy a Cloud Run + `supabase db push`) |
+| CI/CD | GitHub Actions | `ci.yml` (lint + tipos + tests + cobertura ≥85%, solo `backend/`, en cada push/PR a cualquier rama), `docker-ci.yml` (`supabase db push` + deploy a Cloud Run del backend, en cada push a cualquier rama), `docker-ci-firma.yml` (deploy de `identity-key-service`/`signature-service`, solo `developer`) |
 
 El frontend lee `VITE_API_BASE_URL` para hablar con el backend FastAPI, y
 `VITE_SIGNATURE_API_URL` (por defecto `http://localhost:8083`, no listada en
@@ -230,19 +230,28 @@ es responsabilidad activa del rol operador.
 el tipo de persona (Natural → DNI, Jurídica → RUC), cada uno con su propia
 regla de formato.
 
-**Solución**: `DocumentoFactory.crear(tipo, numero)` decide qué clase
-instanciar (`SolicitudPersonaNatural` / `SolicitudPersonaJuridica`); la
-validación de formato vive en cada subtipo vía Pydantic. Agregar un nuevo
-tipo de documento = nueva subclase + una rama en la fábrica, sin tocar a
-los consumidores.
+**Solución**: `DocumentoFactory.crear(tipo, numero)` (línea 52, método
+`crear` en línea 61) decide qué clase instanciar —
+`SolicitudPersonaNatural` (línea 25) / `SolicitudPersonaJuridica` (línea
+37); la validación de formato vive en cada subtipo vía Pydantic. Agregar un
+nuevo tipo de documento = nueva subclase + una rama en la fábrica, sin
+tocar a los consumidores.
 
 #### Singleton (vía `functools.lru_cache`) — providers `get_*`
 
-`get_solicitud_service`, `get_auth_service`, `get_solicitud_repository`,
-`get_ciudadano_service`, `get_sugerencia_dependencia_service` usan
-`@lru_cache(maxsize=1)`: una única instancia por proceso, sin estado global
-mutable ni metaclases. Los tests lo anulan con `cache_clear()` +
-`dependency_overrides`.
+Cinco providers, cada uno en su propio módulo:
+
+| Provider | Archivo:línea (decorador / función) |
+|---|---|
+| `get_solicitud_repository` | `repositorios/solicitud_repo.py:255-256` |
+| `get_solicitud_service` | `servicios/solicitud_service.py:159-160` |
+| `get_ciudadano_service` | `servicios/ciudadano_service.py:40-41` |
+| `get_sugerencia_dependencia_service` | `servicios/enrutamiento_service.py:126-127` |
+| `get_auth_service` | `servicios/auth_service.py:260-261` |
+
+Todos con `@lru_cache(maxsize=1)`: una única instancia por proceso, sin
+estado global mutable ni metaclases. Los tests lo anulan con
+`cache_clear()` + `dependency_overrides`.
 
 ### 3.2 Estructurales
 
@@ -252,11 +261,24 @@ mutable ni metaclases. Los tests lo anulan con `cache_clear()` +
 servicios distintos (solicitudes, sugerencias, y a futuro notificaciones);
 la orquestación estaba dispersa en la capa HTTP.
 
-**Solución**: `MesaDePartesFacade` expone las cuatro operaciones que la
-capa HTTP necesita (`sugerir`, `derivar`, `obtener`, `listar`) y esconde
-la coordinación (incluida la notificación post-derivación). Las rutas
-dependen de **una** abstracción. El provider resuelve los servicios vía
-`Depends`, así los overrides de los tests siguen funcionando.
+**Solución**: `MesaDePartesFacade` (línea 37) expone las cuatro operaciones
+que la capa HTTP necesita (`sugerir`, `derivar`, `obtener`, `listar`) y
+esconde la coordinación (incluida la notificación post-derivación). Las
+rutas dependen de **una** abstracción. El provider (`get_mesa_de_partes_facade`,
+línea 83) resuelve los servicios vía `Depends`, así los overrides de los
+tests siguen funcionando.
+
+#### Facade — `backend/src/rutas/entidad_simulada.py`
+
+**Problema**: resolver un documento (ver 2.7) involucra buscarlo, validar
+el alcance por dependencia, exigir motivo si se rechaza, y persistir de
+forma atómica — mezclar todo eso en el handler HTTP dificultaría probarlo
+sin la ruta completa.
+
+**Solución**: `EntidadSimuladaFacade` (línea 126) concentra `listar_documentos`,
+`verificar_firma`, `generar_zip_documento`, `borrar_documento` y
+`resolver_documento`; el router solo la invoca. Se prueba directamente en
+`tests/test_entidad_simulada.py` sin pasar por `TestClient`.
 
 #### Decorator — `backend/src/repositorios/solicitud_repo_auditoria.py`
 
@@ -264,10 +286,10 @@ dependen de **una** abstracción. El provider resuelve los servicios vía
 duplicaba su propio `logger.info` dentro de `guardar()` — persistencia y
 auditoría mezcladas.
 
-**Solución**: `RepositorioSolicitudConAuditoria` implementa el mismo puerto
-`SolicitudRepository`, envuelve cualquier adaptador y registra la auditoría
-(id, dependencia, estado, duración en ms) por fuera. Los adaptadores quedan
-puros. La composición ocurre solo en el borde:
+**Solución**: `RepositorioSolicitudConAuditoria` (línea 26) implementa el
+mismo puerto `SolicitudRepository`, envuelve cualquier adaptador y registra
+la auditoría (id, dependencia, estado, duración en ms) por fuera. Los
+adaptadores quedan puros. La composición ocurre solo en el borde:
 `get_solicitud_repository() → Auditoria(Supabase())`.
 
 #### Proxy — `backend/src/repositorios/ciudadano_repo.py`
@@ -275,11 +297,12 @@ puros. La composición ocurre solo en el borde:
 **Problema**: cada validación de DNI viaja a Supabase; validaciones
 repetidas (reintentos del mismo ciudadano) pagan la latencia completa.
 
-**Solución**: `CiudadanoRepositoryCacheProxy` implementa el puerto
-`CiudadanoRepository` y controla el acceso al adaptador remoto: aciertos
-se sirven desde memoria durante un TTL (300 s); los fallos **no** se
-cachean (un ciudadano recién sembrado valida de inmediato). Incluye purga
-de expirados y desalojo FIFO al llegar a capacidad.
+**Solución**: `CiudadanoRepositoryCacheProxy` (línea 79) implementa el
+puerto `CiudadanoRepository` (línea 25) y controla el acceso al adaptador
+remoto: aciertos se sirven desde memoria durante un TTL (300 s); los
+fallos **no** se cachean (un ciudadano recién sembrado valida de
+inmediato). Incluye purga de expirados y desalojo FIFO al llegar a
+capacidad.
 
 **Decorator vs Proxy** (distinción para la exposición): el Decorator
 *agrega una responsabilidad* (auditar) sin cambiar la semántica de la
@@ -294,28 +317,29 @@ distintos medios (log/consola, email, SMS). Subclasificar cada combinación
 explota en N×M clases.
 
 **Solución**: dos jerarquías independientes unidas por composición —
-`NotificadorSolicitud` (qué se dice: `NotificacionDerivacion`,
-`NotificacionRechazoLegal`) × `CanalNotificacion` (cómo se envía:
-`CanalConsola`, `CanalEmail`, `CanalSMS`). Agregar un canal no toca los
-tipos de notificación y viceversa. Email y SMS son stubs deliberados: el
-formato del mensaje ya es el final; integrar SMTP/proveedor SMS solo
-reemplaza el canal.
+`NotificadorSolicitud` (línea 70; qué se dice: `NotificacionDerivacion`
+línea 90, `NotificacionRechazoLegal` línea 104) × `CanalNotificacion`
+(línea 26; cómo se envía: `CanalConsola` línea 34, `CanalEmail` línea 46,
+`CanalSMS` línea 58). Agregar un canal no toca los tipos de notificación y
+viceversa. Email y SMS son stubs deliberados: el formato del mensaje ya es
+el final; integrar SMTP/proveedor SMS solo reemplaza el canal.
 
-#### Adapter — `backend/src/repositorios/solicitud_repo.py` y `ciudadano_repo.py`
+#### Adapter — `backend/src/repositorios/solicitud_repo.py`, `ciudadano_repo.py`, `documento_tramitado_repo.py` y `rutas/entidad_simulada.py`
 
-Los adaptadores `RepositorioSolicitudSupabase` / `RepositorioSolicitudEnMemoria`
-(y `CiudadanoRepositorySupabase`) traducen el contrato del dominio
-(`SolicitudRepository`, `CiudadanoRepository`) a la API concreta de cada
-tecnología (cliente PostgREST de Supabase, diccionario en memoria). El
-servicio no distingue cuál usa (DIP): en tests se inyecta el de memoria sin
-credenciales; en producción, el de Supabase.
+| Puerto (ABC) | Adaptador(es) | Archivo:línea |
+|---|---|---|
+| `SolicitudRepository` (línea 28) | `RepositorioSolicitudEnMemoria` (línea 80) · `RepositorioSolicitudSupabase` (línea 136) | `repositorios/solicitud_repo.py` |
+| `CiudadanoRepository` (línea 25) | `CiudadanoRepositorySupabase` (línea 39) — sin adaptador en memoria propio, el Proxy cumple ese rol en tests | `repositorios/ciudadano_repo.py` |
+| — | `DocumentoTramitadoRepository` (línea 8) | `repositorios/documento_tramitado_repo.py` |
+| — | `SignatureServiceAdapter` (línea 64) — adapta el microservicio Java de firma a llamadas HTTP simples que consume `EntidadSimuladaFacade` | `rutas/entidad_simulada.py` |
 
-`backend/src/repositorios/documento_tramitado_repo.py`
-(`DocumentoTramitadoRepository`) sigue el mismo rol para
-`documentos_tramitados`, compartido por `rutas/entidad_simulada.py` y
-`rutas/tramites.py` (ver 2.7) — pero, a diferencia de los anteriores, no
-tiene un adaptador en memoria formal; sus tests usan un fake duck-typed
-definido directamente en el archivo de test.
+Los tres primeros traducen el contrato del dominio a la API concreta de
+cada tecnología (cliente PostgREST de Supabase, diccionario en memoria); el
+servicio no distingue cuál usa (DIP). `DocumentoTramitadoRepository`
+cumple el mismo rol para `documentos_tramitados`, compartido por
+`rutas/entidad_simulada.py` y `rutas/tramites.py` (ver 2.7) — a diferencia
+de los anteriores, no tiene un adaptador en memoria formal; sus tests usan
+un fake duck-typed definido directamente en el archivo de test.
 
 ### 3.3 De comportamiento
 
@@ -325,12 +349,13 @@ definido directamente en el archivo de test.
 independientes (identidad del ciudadano → marco legal → dependencia
 destino), y cualquiera puede cortar el flujo.
 
-**Solución**: `ManejadorAprobacion` define el eslabón; `set_siguiente()`
-encadena con interfaz fluida. `AprobacionLegalHandler` corta la cadena
-devolviendo la solicitud en `Rechazada legal`; los demás delegan con
-`super().manejar()`. La construcción de la cadena está centralizada en
-`_construir_cadena_aprobacion()` (`solicitud_service.py`): `derivar()` no
-conoce los eslabones concretos ni su orden.
+**Solución**: `ManejadorAprobacion` (línea 8) define el eslabón;
+`set_siguiente()` encadena con interfaz fluida. `ValidacionCiudadanoHandler`
+(línea 41) → `AprobacionLegalHandler` (línea 57, corta la cadena
+devolviendo la solicitud en `Rechazada legal`) → `DerivacionDependenciaHandler`
+(línea 75, delega con `super().manejar()`). La construcción de la cadena
+está centralizada en `_construir_cadena_aprobacion()` (`solicitud_service.py`):
+`derivar()` no conoce los eslabones concretos ni su orden.
 
 #### Strategy — `backend/src/servicios/enrutamiento_service.py` (MDP-10)
 
@@ -339,11 +364,11 @@ puede calcularse de formas distintas (motor genético con variabilidad, o
 reglas deterministas de respaldo) y debe poder cambiarse sin tocar al
 consumidor.
 
-**Solución**: `EstrategiaEnrutamiento` (interfaz) con dos estrategias
-intercambiables: `EnrutamientoGenetico` (usa `AlgoritmoGenetico` de
-`utilidades/`) y `EnrutamientoReglas` (fallback determinista, usado también
-en tests). `SugerenciaDependenciaService` recibe la estrategia por
-inyección.
+**Solución**: `EstrategiaEnrutamiento` (interfaz, línea 44) con dos
+estrategias intercambiables: `EnrutamientoGenetico` (línea 76, usa
+`AlgoritmoGenetico` de `utilidades/`) y `EnrutamientoReglas` (línea 55,
+fallback determinista, usado también en tests). `SugerenciaDependenciaService`
+(línea 113) recibe la estrategia por inyección.
 
 ### 3.4 Patrones de arquitectura (no GoF, pero presentes)
 
@@ -359,7 +384,7 @@ inyección.
 El subsistema de firma tiene su propio catálogo, independiente del backend
 Python pero con el mismo criterio: un patrón por problema real.
 
-#### Factory Method — `common-crypto/.../patterns/creational/{KeyPairFactory,RsaKeyPairFactory}.java`
+#### Factory Method — `common-crypto/.../patterns/creational/RsaKeyPairFactory.java:6` (implementa `KeyPairFactory`)
 
 Genera el par de llaves RSA sin acoplar a `identity-key-service` al
 algoritmo concreto de generación; `SeedCitizenFactory`
@@ -367,14 +392,14 @@ algoritmo concreto de generación; `SeedCitizenFactory`
 ciudadano (`POST /api/personas/seed/once`, protegido con
 `X-Internal-Token`, idempotente vía `key_seed_control`).
 
-#### Adapter — `common-crypto/.../crypto/OriginalCryptoAdapter.java`
+#### Adapter — `common-crypto/.../crypto/OriginalCryptoAdapter.java:14`
 
 Traduce el protocolo de firma propio de la cátedra (RSA modular original,
 no `java.security.Signature` estándar) a una interfaz simple
 (`sha256Hex`, `signToBase64`) que `DocumentSignatureFacade` consume sin
 conocer los detalles matemáticos.
 
-#### Facade — `signature-service/.../service/DocumentSignatureFacade.java`
+#### Facade — `signature-service/.../service/DocumentSignatureFacade.java:32`
 
 **Problema**: firmar un documento involucra 6 colaboradores (cliente de
 identidad, preprocesador, criptografía, empaquetado, repositorio y
@@ -386,28 +411,30 @@ negocio.
 `DocumentController` conoce; internamente orquesta al resto de patrones de
 esta sección.
 
-#### Command — `signature-service/.../patterns/behavioral/SignDocumentCommand.java`
+#### Command — `signature-service/.../patterns/behavioral/SignDocumentCommand.java:4`
 
-Encapsula los datos de una operación de firma (`dni`, `fileName`,
-`contentType`, `content`) como un objeto inmutable que viaja desde el
-controller hasta la fachada, desacoplando la forma HTTP (multipart) de la
-lógica de firma.
+`public record SignDocumentCommand(dni, fileName, contentType, content)` —
+encapsula los datos de una operación de firma como un objeto inmutable que
+viaja desde el controller hasta la fachada, desacoplando la forma HTTP
+(multipart) de la lógica de firma. Es un record de datos puro, sin método
+`execute()` propio.
 
-#### Strategy — `signature-service/.../patterns/behavioral/{SignatureVerificationStrategy,RsaModularVerificationStrategy}.java`
+#### Strategy — `signature-service/.../patterns/behavioral/SignatureVerificationStrategy.java:6` (interfaz) / `RsaModularVerificationStrategy.java:8` (implementación)
 
 Aísla el algoritmo de verificación de firma detrás de una interfaz, para
 poder soportar otro esquema de firma en el futuro sin tocar
 `DocumentSignatureFacade.verify()`.
 
-#### Strategy (registro) — `signature-service/.../patterns/behavioral/{DocumentPreprocessor,DocumentPreprocessorRegistry,DefaultBinaryPreprocessor,PdfStampPreprocessor}.java`
+#### Strategy (registro) — `signature-service/.../patterns/behavioral/`
 
 **Problema**: preparar el documento antes de firmarlo difiere según el tipo
 de archivo — un PDF necesita un sello visible, un binario genérico no.
 
-**Solución**: `DocumentPreprocessorRegistry` elige en tiempo de ejecución
-entre `PdfStampPreprocessor` y `DefaultBinaryPreprocessor` según el
-`contentType`; agregar un formato nuevo (ej. DOCX) es una clase más, sin
-tocar `DocumentSignatureFacade`.
+**Solución**: `DocumentPreprocessor` (interfaz, `DocumentPreprocessor.java:6`)
+con dos implementaciones — `PdfStampPreprocessor.java:27` y
+`DefaultBinaryPreprocessor.java:10`. `DocumentPreprocessorRegistry.java:9`
+elige en tiempo de ejecución entre ellas según el `contentType`; agregar un
+formato nuevo (ej. DOCX) es una clase más, sin tocar `DocumentSignatureFacade`.
 
 ### 3.6 Patrones evaluados y descartados (decisión consciente)
 
@@ -428,17 +455,24 @@ tocar `DocumentSignatureFacade`.
 - CI (`.github/workflows/ci.yml`): `black --check`, `flake8`, `mypy`
   (plugin Pydantic), `pytest --cov=src --cov-fail-under=85`. Cubre solo
   `backend/` — `frontend/` y `firma-java/` no tienen pipeline propio todavía.
-- Estado tras la refactorización estructural: **151 tests, cobertura 92%**.
+- Estado actual: **194 tests, cobertura 88%**.
 - Tests específicos de patrones:
   - `tests/test_mesa_de_partes_facade.py` (Facade + integración con Bridge)
+  - `tests/test_entidad_simulada.py` (Facade `EntidadSimuladaFacade`, Adapter
+    `SignatureServiceAdapter`, alcance por dependencia, resolución y su
+    guard de carrera — 21 tests)
+  - `tests/test_tramites.py` (consulta de motivo/fecha de resolución y
+    reemplazo dentro del plazo — 10 tests)
   - `tests/test_solicitud_repo_auditoria.py` (Decorator)
   - `tests/test_ciudadano_cache_proxy.py` (Proxy: TTL, no-cacheo de fallos, desalojo)
   - `tests/test_notificaciones.py` (Bridge: mismo notificador × 3 canales)
   - `tests/test_cadena_aprobacion.py`, `tests/test_enrutamiento_service.py`,
     `tests/test_documento_factory.py` (patrones previos)
-- **Huecos de cobertura conocidos**: `rutas/tramites.py` no tiene tests
-  (backend); `firma-java/` (los tres módulos Maven) no tiene tests
-  automatizados ni CI configurado.
+- **Huecos de cobertura conocidos**: los métodos de `documento_tramitado_repo.py`
+  y `rutas/tramites.py` que hablan con Supabase real solo se prueban vía
+  fakes duck-typed, no contra Postgres real (ver 2.5); `firma-java/` (los
+  tres módulos Maven) no tiene tests automatizados ni CI de tests, aunque sí
+  tiene despliegue automatizado (`docker-ci-firma.yml`).
 
 ## 5. Datos de prueba
 
