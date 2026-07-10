@@ -1,140 +1,75 @@
-# Mesa de Partes — Voto Electrónico Seguro
+# Mesa de Partes Virtual
 
-[![CI](https://github.com/Grupo2-DS-CC3S2A/-todo-app-scrum/actions/workflows/ci.yml/badge.svg)](https://github.com/Grupo2-DS-CC3S2A/-todo-app-scrum/actions/workflows/ci.yml)
-[![Stack](https://img.shields.io/badge/stack-React%20%7C%20FastAPI-brightgreen)](#)
+[![CI](https://github.com/Grupo2-DS-CC3S2A/todo-app-scrum/actions/workflows/ci.yml/badge.svg)](https://github.com/Grupo2-DS-CC3S2A/todo-app-scrum/actions/workflows/ci.yml)
+[![Stack](https://img.shields.io/badge/stack-React%20%7C%20FastAPI%20%7C%20Java-brightgreen)](#)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue)](#)
-[![Node](https://img.shields.io/badge/Node.js-18%2B-green)](#)
-[![Coverage](https://img.shields.io/badge/coverage-97%25-brightgreen)](#)
+[![Coverage](https://img.shields.io/badge/coverage-88%25-brightgreen)](#)
 
-Sistema de **Mesa de Partes Electrónica** para la automatización del registro y derivación de solicitudes de voto. Reduce tiempos de espera y previene fraudes mediante cifrado SHA-256 y llaves dinámicas generadas por algoritmos genéticos.
+Sistema de **Mesa de Partes Virtual**: registro, derivación, firma digital y
+resolución de trámites documentarios. Reemplaza la ventanilla física por un
+flujo digital trazable, con firma RSA verificable y una entidad revisora que
+acepta o rechaza cada documento.
 
 > Proyecto del curso **Desarrollo de Software (CC3S2-A)** — Grupo 2.
 
 ---
 
-## ¿Qué hace el sistema?
+## Arquitectura
 
-El sistema cubre dos grandes flujos:
+Tres servicios independientes:
 
-| Funcionalidad                 | Descripción                                                                                                                                                                                                          |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Emisión de voto seguro**    | El ciudadano ingresa su DNI e ID de candidato. El backend genera un hash SHA-256 del voto junto con una llave evolutiva producida por un algoritmo genético. Se devuelve un comprobante con hash, llave y timestamp. |
-| **Derivación de solicitudes** | Un administrador puede derivar solicitudes a la dependencia correspondiente (Registro Civil, Identificación, GRIAS, Imagenología, etc.) según el tipo de trámite.                                                    |
-| **Auditoría**                 | Endpoint de auditoría que devuelve todos los votos cifrados almacenados para verificación interna.                                                                                                                   |
-| **Consulta de estado**        | Permite consultar el estado de una solicitud derivada por su ID.                                                                                                                                                     |
-| **Health check**              | Endpoint `/health` para monitoreo de disponibilidad del servicio.                                                                                                                                                    |
+| Servicio | Stack | Rol |
+| --- | --- | --- |
+| `backend/` | FastAPI, Python 3.10+ | API REST: validación ciudadana, trámites, auth JWT, resolución/reemplazo de documentos |
+| `frontend/` | React 18 + TypeScript + Vite | SPA: portal del ciudadano + panel "Entidad Simulada" para operador/admin |
+| `firma-java/` | Java 21 + Spring Boot | Microservicios de firma digital RSA (`identity-key-service`, `signature-service`) |
 
-> **Nota sobre persistencia:** Actualmente el repositorio de solicitudes es **en memoria** (se reinicia al apagar el servidor). No hay base de datos relacional conectada aún — es el siguiente paso planificado en el roadmap.
-
----
-
-## Organización del Repositorio
-
-```
-VotingSystem/
-├── backend/                    # API REST con FastAPI (Python)
-│   ├── app.py                  # Punto de entrada (uvicorn)
-│   ├── pytest.ini              # Configuración de pytest
-│   ├── requirements.txt        # Dependencias Python
-│   ├── src/
-│   │   ├── config.py           # Configuración centralizada (env vars)
-│   │   ├── main.py             # App factory de FastAPI + CORS + routers
-│   │   ├── modelos/            # Entidades de dominio (Pydantic)
-│   │   ├── servicios/          # Lógica de negocio (cifrado, GA, derivación)
-│   │   ├── repositorios/       # Capa de persistencia (en memoria / reemplazable)
-│   │   ├── rutas/              # Endpoints: votos, admin, solicitudes
-│   │   ├── excepciones/        # Errores de dominio y handlers HTTP
-│   │   ├── utilidades/         # SHA-256, algoritmo genético de llaves
-│   │   └── logging_config.py   # Logging estructurado
-│   └── tests/                  # Suite de pruebas (75 tests, 97% cobertura)
-│
-├── frontend/                   # SPA con React + TypeScript + Vite
-│   ├── index.html
-│   └── src/
-│       ├── App.tsx             # Layout principal (split panel institucional)
-│       ├── components/
-│       │   ├── VotingForm.tsx       # Formulario de voto (DNI + candidato)
-│       │   ├── VotingReceipt.tsx    # Comprobante del voto cifrado
-│       │   └── AdminDerivacionPanel.tsx  # Panel de administración
-│       ├── hooks/
-│       │   └── useVoting.ts    # Hook asíncrono: fetch + estado de carga
-│       ├── api/                # Funciones de llamada al backend
-│       └── types/              # Tipos TypeScript compartidos
-│
-└── README.md
-```
+Persistencia en **Supabase/Postgres**. Detalle de capas, flujos y catálogo de
+patrones de diseño en [`docs/arquitectura-y-patrones.md`](docs/arquitectura-y-patrones.md).
 
 ---
 
-## Tecnologías
+## Funcionalidades principales
 
-### Backend
-
-| Tecnología               | Uso                                                        |
-| ------------------------ | ---------------------------------------------------------- |
-| **Python 3.10+**         | Lenguaje principal del servidor                            |
-| **FastAPI**              | Framework web asíncrono, genera Swagger UI automáticamente |
-| **Uvicorn**              | Servidor ASGI de alta performance                          |
-| **Pydantic v2**          | Validación y serialización de datos                        |
-| **SHA-256** (stdlib)     | Cifrado del voto para garantizar anonimato                 |
-| **Algoritmos Genéticos** | Generación de llaves evolutivas dinámicas                  |
-| **pytest + pytest-cov**  | Suite de tests automatizados (75 tests, 97% cobertura)      |
-
-### Frontend
-
-| Tecnología                | Uso                                                    |
-| ------------------------- | ------------------------------------------------------ |
-| **React 18 + TypeScript** | UI reactiva con tipado estricto                        |
-| **Vite**                  | Bundler y servidor de desarrollo ultrarrápido          |
-| **Chakra UI v3**          | Sistema de componentes con paleta institucional RENIEC |
-
-### Infraestructura / Flujo
-
-| Herramienta              | Uso                                                          |
-| ------------------------ | ------------------------------------------------------------ |
-| **Git + GitHub**         | Control de versiones, ramas `main` / `develop` / `feature/*` |
-| **Jira (Smart Commits)** | Trazabilidad de tickets desde los mensajes de commit         |
+- **Validación ciudadana** por DNI (`POST /api/validate`).
+- **Registro y firma digital** de documentos, con sello visible en el PDF y contenedor `.uni-signed` verificable.
+- **Entidad revisora** (roles admin/operador, JWT, acotado por dependencia): lista, verifica firma, acepta o rechaza cada documento con motivo obligatorio.
+- **Consulta y reemplazo**: el ciudadano ve el resultado y el motivo de rechazo; si el plazo no venció, puede registrar un documento de reemplazo.
 
 ---
 
-## Cómo ejecutar el proyecto
-
-Abrir **dos terminales** en la raíz de `VotingSystem/`.
-
-### 1. Backend
+## Cómo ejecutar
 
 ```bash
-cd backend
+# Backend
+cd backend && python -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
+uvicorn src.main:app --reload --port 8000   # http://localhost:8000/docs
 
-# Crear y activar entorno virtual (solo la primera vez)
-python -m venv .venv
-.venv\Scripts\activate        # Windows
-# source .venv/bin/activate   # Linux / macOS
+# Frontend
+cd frontend && npm install && npm run dev   # http://localhost:5173
 
-pip install -r requirements.txt
-uvicorn src.main:app --reload --port 8000
+# Firma digital (opcional, por módulo)
+cd firma-java/signature-service && mvn spring-boot:run   # :8083
 ```
 
-- API en: `http://localhost:8000`
-- Swagger UI: `http://localhost:8000/docs`
+Requiere una instancia de Supabase (local vía `supabase start`, o Cloud) con
+las migraciones de `supabase/migrations/` aplicadas.
 
-### 2. Tests (backend)
+---
 
-```bash
-cd backend
-source .venv/bin/activate
-pytest --cov=src --cov-report=term
-```
+## Calidad
 
-### 3. Frontend
+- **194 tests** automatizados, **88% cobertura** (umbral CI: 85%).
+- `black` · `flake8` · `mypy` limpios.
+- CI en cada push/PR (`.github/workflows/ci.yml`); despliegue automático a Cloud Run + migración de Supabase en cada push (`docker-ci.yml`).
 
-```bash
-cd frontend
-npm install        # solo la primera vez
-npm run dev
-```
+---
 
-- Portal web: `http://localhost:5173`
+## Despliegue
+
+Backend → Google Cloud Run · Frontend → Vercel · Base de datos → Supabase
+Cloud · Microservicios de firma → Cloud Run (región `europe-west1`).
 
 ---
 
@@ -143,7 +78,6 @@ npm run dev
 | Nombre                     |
 | -------------------------- |
 | Alvaro Jesus Taipe Cotrina |
-| Andrew Owim Inga Rojas     |
 | César Omar López Arteaga   |
 | Jose Alfredo Palomino      |
-| Leonardo Chacón            |
+| Leonardo Chacón Roque      |

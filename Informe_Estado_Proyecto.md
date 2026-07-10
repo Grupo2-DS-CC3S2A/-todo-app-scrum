@@ -1,47 +1,45 @@
-# Informe de Estado de Proyecto - Iteración 1 (Scrum)
+# Informe de Estado del Proyecto — Mesa de Partes Virtual
 
-## 1. Datos Generales
-- **Proyecto:** Mesa de Partes para Automatización de Voto Electrónico Seguro
-- **Objetivo:** Automatizar el proceso de votación de forma electrónica, eliminando las demoras y largas esperas, y previniendo el fraude mediante cifrado hash y algoritmos genéticos.
-- **Enlace a Jira:** [Tablero Scrum - Grupo 2](https://grupo-2-cc3s2.atlassian.net/jira/software/projects/SCRUM/boards)
-- **Enlace a GitHub:** [Repositorio del Proyecto](https://github.com/Grupo2-DS-CC3S2A/-todo-app-scrum)
+## 1. Datos generales
 
-## 2. Arquitectura del Sistema (Práctica Dirigida 1)
-Para cumplir con los requerimientos de seguridad, rendimiento y adaptabilidad, se define la siguiente arquitectura orientada a servicios (Microservicios/Monolito Modular):
+- **Proyecto:** Mesa de Partes Virtual — registro, derivación, firma digital y resolución de trámites documentarios.
+- **Curso:** Desarrollo de Software (CC3S2-A) — Grupo 2.
+- **Repositorio:** [github.com/Grupo2-DS-CC3S2A/todo-app-scrum](https://github.com/Grupo2-DS-CC3S2A/todo-app-scrum)
 
-- **Frontend (Cliente Web):** React con Vite y Chakra UI. Proporciona una interfaz ágil para que los usuarios emitan su voto sin demoras.
-- **Backend (API Core):** Node.js (Fastify/Express) o Python (FastAPI). Encargado de la lógica de negocio, validación de identidad y recepción de votos. Python es altamente recomendado para integrar fácilmente las librerías de algoritmos genéticos.
-- **Módulo de Seguridad (Cifrado y Algoritmos Genéticos):** Un servicio que recibe el voto, le aplica un cifrado Hash (ej. SHA-256) y utiliza un algoritmo genético para mutar/evolucionar claves de cifrado dinámicas que previenen ataques de fuerza bruta y garantizan la inmutabilidad del voto.
-- **Base de Datos:** PostgreSQL para datos relacionales de usuarios y auditoría, o MongoDB para almacenar los votos cifrados como documentos.
+## 2. Arquitectura actual
 
-## 3. Product Backlog Inicial
-A continuación, el Product Backlog derivado del Documento de Especificación de Requisitos de Software (SRS):
+Tres servicios independientes: `backend/` (FastAPI, capas `rutas → servicios
+→ repositorios → modelos`), `frontend/` (React + Vite SPA), `firma-java/`
+(microservicios Java 21/Spring Boot para firma digital RSA). Persistencia en
+Supabase/Postgres. Catálogo completo de patrones de diseño y flujos en
+`docs/arquitectura-y-patrones.md`.
 
-| ID | Tipo | Historia de Usuario / Requisito | Prioridad | Estimación (Puntos) |
-|---|---|---|---|---|
-| PB-01 | Epic | **Gestión de Identidad** | Alta | 21 |
-| PB-02 | Epic | **Emisión de Voto Electrónico** | Alta | 34 |
-| PB-03 | Epic | **Cifrado y Seguridad Antifraude** | Crítica | 40 |
-| PB-04 | Story | Como votante, quiero registrarme en el sistema para validar mi identidad antes de votar. | Alta | 5 |
-| PB-05 | Story | Como votante, quiero acceder a la mesa de partes electrónica para emitir mi voto de forma rápida. | Alta | 8 |
-| PB-06 | Story | Como sistema, quiero cifrar cada voto emitido utilizando un hash criptográfico para garantizar el anonimato. | Crítica| 13 |
-| PB-07 | Story | Como sistema, quiero aplicar algoritmos genéticos en la generación de llaves de cifrado para mitigar intentos de fraude. | Crítica| 21 |
+## 3. Funcionalidades entregadas
 
-## 4. Sprint 1 Backlog
-Para esta primera iteración, el objetivo del Sprint fue: **"Definir el Documento de Especificación de Requisitos de Software (SRS), establecer la arquitectura base, crear los flujos iniciales de registro y encriptación, y garantizar cobertura de pruebas automatizadas ≥ 85%."**
+- Validación de identidad ciudadana por DNI.
+- Registro de trámites con firma digital RSA (sello visible en PDF, contenedor `.uni-signed` verificable, envío por correo).
+- Autenticación JWT con roles `admin`/`operador`, este último acotado a su dependencia asignada.
+- Entidad revisora: listar, verificar firma, aceptar o rechazar documentos (motivo obligatorio al rechazar), con guard atómico contra resoluciones simultáneas.
+- Consulta de estado y motivo por el ciudadano; reemplazo de documento rechazado mientras el plazo no haya vencido.
 
-| Ticket Jira | Tarea | Estado actual (Kanban/Scrum) | Asignado a |
-|---|---|---|---|
-| DEV-01 | Redactar Documento SRS inicial con Casos de Uso y Reglas de Negocio. | Done | Analista de Negocio |
-| DEV-02 | Definir e inicializar arquitectura del repositorio (Frontend/Backend). | Done | Desarrollador |
-| DEV-03 | Configurar integración entre Jira y GitHub (Smart Commits). | Done | Desarrollador / DevOps |
-| DEV-04 | Implementar endpoint básico para recibir voto y generar Hash. | Done | Desarrollador |
-| DEV-05 | Diseñar plan de pruebas para la integridad del Hash. | Done | Tester |
-| DEV-07 | Suite de pruebas unitarias e integración — cobertura ≥ 85%. | Done | Leonardo Chacón |
+## 4. Calidad
 
-**Sprint 1 cerrado al 100% — 37 Story Points entregados.**
+- 194 tests automatizados (backend), 88% de cobertura (umbral CI 85%).
+- `black`, `flake8`, `mypy` sin errores.
+- CI en cada push/PR a cualquier rama (`ci.yml`).
 
-## 5. Reporte de Herramientas Ágiles
-- **Jira:** Se ha configurado un proyecto tipo Scrum. Los tickets DEV-01 a DEV-07 han sido completados en el Sprint 1.
-- **GitHub:** Se crearon ramas (branches) siguiendo el estándar `feature/DEV-XX-nombre-tarea`. La integración permite que al hacer un Pull Request, las tareas en Jira se muevan automáticamente a "In Review".
-- **pytest + pytest-cov:** Suite de 75 tests automatizados con 97% de cobertura de código. Ejecuta con `cd backend && pytest --cov=src`
+## 5. Despliegue
+
+- **Backend:** Google Cloud Run (`us-central1`), imagen Docker multi-stage.
+- **Frontend:** Vercel.
+- **Base de datos:** Supabase Cloud; migraciones aplicadas automáticamente en cada push (`docker-ci.yml`).
+- **Firma digital:** `identity-key-service` y `signature-service` en Cloud Run (`europe-west1`), desplegados en workflow aparte al tocar `firma-java/`.
+
+## 6. Equipo
+
+| Nombre                     |
+| -------------------------- |
+| Alvaro Jesus Taipe Cotrina |
+| César Omar López Arteaga   |
+| Jose Alfredo Palomino      |
+| Leonardo Chacón Roque      |
